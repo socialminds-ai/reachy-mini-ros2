@@ -2,6 +2,12 @@
 Changelog for package reachy_mini_c
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* DESIGN.md (background: the daemon's loop and how it shaped the driver); colcon runs the Python tests (extras_require test); publish_tf/base_frame in driver.yaml; lint and comment fixes
+  Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 0.2.0 (2026-09-16)
 ------------------
 * TF and robot model: reachy_mini_description (URDF + meshes from the SDK model, restructured for robot_state_publisher) and TF broadcasting of the head and rods from the drivers' kinematics
