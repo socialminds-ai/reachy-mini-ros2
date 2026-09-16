@@ -17,7 +17,9 @@
 #include <reachy_mini_c/reachy_mini_c.h>
 
 #include <array>
+#include <cmath>
 #include <stdexcept>
+#include <vector>
 
 namespace reachy_mini_driver
 {
@@ -62,6 +64,59 @@ Kinematics::Kinematics()
   if (!impl_->k) {
     throw std::runtime_error(rmc_last_error());
   }
+  if (rmc_kinematics_lengths(impl_->k, &arm_length_, &rod_length_, &head_z_offset_) != 0) {
+    throw std::runtime_error(rmc_last_error());
+  }
+  for (int i = 0; i < 6; ++i) {
+    std::array<double, 16> m{};
+    std::array<double, 3> a{};
+    if (rmc_kinematics_leg(impl_->k, i, m.data(), a.data()) != 0) {
+      throw std::runtime_error(rmc_last_error());
+    }
+    legs_.push_back({fromRowMajor(m), Eigen::Vector3d(a[0], a[1], a[2])});
+  }
+}
+
+Pose Kinematics::headInBase(const Pose & head_pose) const
+{
+  Pose p = head_pose;
+  p.translation().z() += head_z_offset_;
+  return p;
+}
+
+std::vector<Pose> Kinematics::rodsInBase(const Joints & joints, const Pose & head_pose) const
+{
+  const Pose t_base_head = headInBase(head_pose);
+  std::vector<Pose> rods;
+  for (std::size_t i = 0; i < legs_.size(); ++i) {
+    const double theta = joints[i + 1];
+    const Eigen::Vector3d tip = legs_[i].t_base_motor *
+      Eigen::Vector3d(arm_length_ * std::cos(theta), arm_length_ * std::sin(theta), 0.0);
+    const Eigen::Vector3d anchor = t_base_head * legs_[i].anchor_head;
+    Eigen::Vector3d axis = anchor - tip;
+    if (axis.norm() < 1e-9) {
+      axis = Eigen::Vector3d::UnitX();
+    }
+    Pose rod = Pose::Identity();
+    rod.linear() = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitX(), axis.normalized())
+      .toRotationMatrix();
+    rod.translation() = tip;
+    rods.push_back(rod);
+  }
+  return rods;
+}
+
+std::vector<double> Kinematics::rodLengths(const Joints & joints, const Pose & head_pose) const
+{
+  const Pose t_base_head = headInBase(head_pose);
+  std::vector<double> out;
+  for (std::size_t i = 0; i < legs_.size(); ++i) {
+    const double theta = joints[i + 1];
+    const Eigen::Vector3d tip = legs_[i].t_base_motor *
+      Eigen::Vector3d(arm_length_ * std::cos(theta), arm_length_ * std::sin(theta), 0.0);
+    out.push_back((t_base_head * legs_[i].anchor_head - tip).norm());
+  }
+  return out;
 }
 
 Kinematics::~Kinematics()

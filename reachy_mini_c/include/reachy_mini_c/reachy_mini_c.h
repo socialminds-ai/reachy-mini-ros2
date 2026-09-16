@@ -91,6 +91,16 @@ int rmc_kinematics_fk(
   double out_pose[16]);
 /** Reset the FK warm start to the given head pose. */
 int rmc_kinematics_reset_fk(RmcKinematics *k, const double head_pose[16]);
+/** Platform geometry: motor arm length, rod length, head frame height at rest (m). */
+int rmc_kinematics_lengths(
+  RmcKinematics *k, double *out_arm_length, double *out_rod_length, double *out_head_z_offset);
+/**
+ * Geometry of leg `index` (0..5, stewart joint order): motor frame in the base
+ * frame (row-major 4x4) and the rod anchor on the platform, in the head frame.
+ * The horn tip is at arm_length * (cos(theta), sin(theta), 0) in the motor frame.
+ */
+int rmc_kinematics_leg(
+  RmcKinematics *k, int index, double out_t_base_motor[16], double out_anchor_head[3]);
 
 #ifdef __cplusplus
 }

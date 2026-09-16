@@ -17,13 +17,20 @@ Launch the Reachy Mini bare-metal driver with the parameters of config/driver.ya
     ros2 launch reachy_mini driver.launch.py                    # C++ driver, real servos
     ros2 launch reachy_mini driver.launch.py lang:=python       # Python driver
     ros2 launch reachy_mini driver.launch.py serial_port:=fake  # no hardware
+    ros2 launch reachy_mini driver.launch.py rviz:=true         # + RViz
+
+Also starts robot_state_publisher with the reachy_mini_description model
+(description:=false to skip it): joint_states from the driver give the body yaw,
+the motor horns and the antennas; the driver itself broadcasts the head and the
+six rods on /tf.
 """
 
 import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
@@ -39,6 +46,15 @@ def generate_launch_description():
                               description="servo bus device, or 'fake' for a simulated bus"),
         DeclareLaunchArgument('params_file', default_value=params,
                               description='parameter file (see config/driver.yaml)'),
+        DeclareLaunchArgument('description', default_value='true',
+                              description='publish the robot model (robot_state_publisher)'),
+        DeclareLaunchArgument('rviz', default_value='false', description='open RViz'),
+        IncludeLaunchDescription(
+            os.path.join(get_package_share_directory('reachy_mini_description'),
+                         'launch', 'description.launch.py'),
+            launch_arguments={'rviz': LaunchConfiguration('rviz')}.items(),
+            condition=IfCondition(LaunchConfiguration('description')),
+        ),
         Node(
             package=PythonExpression(["'reachy_mini_driver' if '", lang,
                                       "' == 'python' else 'reachy_mini_driver_cpp'"]),

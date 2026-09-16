@@ -197,6 +197,7 @@ struct KinematicsData {
 pub struct RmcKinematics {
     kin: Kinematics,
     head_z_offset: f64,
+    data: KinematicsData,
 }
 
 fn mat_from_row_major(p: *const f64) -> Matrix4<f64> {
@@ -254,7 +255,8 @@ pub extern "C" fn rmc_kinematics_new() -> *mut RmcKinematics {
     init[(2, 3)] = data.head_z_offset;
     kin.reset_forward_kinematics(init);
     let _ = HEAD_Z_OFFSET; // documented constant, the JSON value is authoritative
-    Box::into_raw(Box::new(RmcKinematics { kin, head_z_offset: data.head_z_offset }))
+    let head_z_offset = data.head_z_offset;
+    Box::into_raw(Box::new(RmcKinematics { kin, head_z_offset, data }))
 }
 
 /// Free a solver.
@@ -369,5 +371,53 @@ pub unsafe extern "C" fn rmc_kinematics_reset_fk(k: *mut RmcKinematics, head_pos
     let mut pose = mat_from_row_major(head_pose);
     pose[(2, 3)] += s.head_z_offset;
     s.kin.reset_forward_kinematics(pose);
+    0
+}
+
+/// Geometry of the platform: motor arm length, rod length and the vertical
+/// offset between the base frame and the head frame at rest (metres).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rmc_kinematics_lengths(
+    k: *mut RmcKinematics,
+    out_arm_length: *mut f64,
+    out_rod_length: *mut f64,
+    out_head_z_offset: *mut f64,
+) -> c_int {
+    let s = check_kin!(k);
+    if out_arm_length.is_null() || out_rod_length.is_null() || out_head_z_offset.is_null() {
+        return set_error("output pointer is NULL");
+    }
+    unsafe {
+        *out_arm_length = s.data.motor_arm_length;
+        *out_rod_length = s.data.rod_length;
+        *out_head_z_offset = s.data.head_z_offset;
+    }
+    0
+}
+
+/// Geometry of one of the 6 legs (`index` 0..5, same order as the stewart
+/// joints): the pose of the motor frame in the base frame (row-major 4x4) and
+/// the anchor of the rod on the platform, in the head frame.
+/// The horn tip is at `arm_length * (cos(theta), sin(theta), 0)` in the motor frame.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rmc_kinematics_leg(
+    k: *mut RmcKinematics,
+    index: c_int,
+    out_t_base_motor: *mut f64,
+    out_anchor_head: *mut f64,
+) -> c_int {
+    let s = check_kin!(k);
+    if out_t_base_motor.is_null() || out_anchor_head.is_null() {
+        return set_error("output pointer is NULL");
+    }
+    let Some(m) = usize::try_from(index).ok().and_then(|i| s.data.motors.get(i)) else {
+        return set_error("leg index out of range (0..5)");
+    };
+    let t_motor_base = Matrix4::from_fn(|r, c| m.t_motor_world[r][c]);
+    let Some(t_base_motor) = t_motor_base.try_inverse() else {
+        return set_error("singular motor transform");
+    };
+    mat_to_row_major(&t_base_motor, out_t_base_motor);
+    unsafe { std::ptr::copy_nonoverlapping(m.branch_position.as_ptr(), out_anchor_head, 3) };
     0
 }

@@ -30,7 +30,7 @@ import threading
 import time
 from typing import List, Optional, Tuple
 
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 import numpy as np
 import rclpy
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
@@ -45,8 +45,10 @@ from reachy_mini_msgs.msg import AntennasTarget
 from scipy.spatial.transform import Rotation as R
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
+from tf2_ros import TransformBroadcaster
 
 from .bus import FakeBus, MOTOR_NAMES, MotorBus, RealBus
+from .geometry import PlatformGeometry
 from .moves import DEFAULT_DATASET, MoveLibrary
 
 # Same rest poses as the Pollen daemon.
@@ -71,6 +73,19 @@ def pose_to_msg(pose: np.ndarray, stamp, frame_id: str) -> PoseStamped:
     msg.pose.orientation.x, msg.pose.orientation.y = q[0], q[1]
     msg.pose.orientation.z, msg.pose.orientation.w = q[2], q[3]
     return msg
+
+
+def pose_to_transform(pose: np.ndarray, stamp, parent: str, child: str) -> TransformStamped:
+    """Convert a 4x4 matrix to a TransformStamped parent -> child."""
+    t = TransformStamped()
+    t.header.stamp = stamp
+    t.header.frame_id = parent
+    t.child_frame_id = child
+    t.transform.translation.x, t.transform.translation.y, t.transform.translation.z = pose[:3, 3]
+    q = R.from_matrix(pose[:3, :3]).as_quat()
+    t.transform.rotation.x, t.transform.rotation.y = q[0], q[1]
+    t.transform.rotation.z, t.transform.rotation.w = q[2], q[3]
+    return t
 
 
 def msg_to_pose(msg: PoseStamped) -> np.ndarray:
@@ -114,10 +129,14 @@ class DriverNode(Node):
         Default move library.
     wake_up_on_start, sleep_on_shutdown
         Go to the rest pose at start / to the sleep pose (and torque off) at exit.
+    publish_tf, base_frame
+        Broadcast on /tf the transforms robot_state_publisher cannot compute from
+        joint_states: base_frame -> head (forward kinematics) and base_frame -> rod_1..6
+        (default true, 'base_link'). See the reachy_mini_description package.
 
     Topics
     ------
-    joint_states (sensor_msgs/JointState), ~/head_pose (geometry_msgs/PoseStamped): published.
+    joint_states (sensor_msgs/JointState), ~/head_pose (geometry_msgs/PoseStamped), /tf: published.
     ~/target_head_pose (PoseStamped), ~/target_antennas (reachy_mini_msgs/AntennasTarget),
     ~/target_body_yaw (std_msgs/Float64): subscribed.
 
@@ -135,6 +154,8 @@ class DriverNode(Node):
         self.declare_parameter('dataset', DEFAULT_DATASET)
         self.declare_parameter('wake_up_on_start', True)
         self.declare_parameter('sleep_on_shutdown', True)
+        self.declare_parameter('publish_tf', True)
+        self.declare_parameter('base_frame', 'base_link')
 
         port = self.get_parameter('serial_port').value
         self.bus = bus if bus is not None else (FakeBus() if port == 'fake' else RealBus(port))
@@ -154,6 +175,9 @@ class DriverNode(Node):
 
         self.joint_pub = self.create_publisher(JointState, 'joint_states', 10)
         self.pose_pub = self.create_publisher(PoseStamped, '~/head_pose', 10)
+        self.base_frame = self.get_parameter('base_frame').value
+        self.geometry = PlatformGeometry()
+        self.tf_broadcaster = TransformBroadcaster(self) if self.get_parameter('publish_tf').value else None
         self.create_subscription(PoseStamped, '~/target_head_pose', self._on_target_pose, 10)
         self.create_subscription(AntennasTarget, '~/target_antennas', self._on_target_antennas, 10)
         self.create_subscription(Float64, '~/target_body_yaw', self._on_target_body_yaw, 10)
@@ -234,7 +258,14 @@ class DriverNode(Node):
         js.name = MOTOR_NAMES
         js.position = positions
         self.joint_pub.publish(js)
-        self.pose_pub.publish(pose_to_msg(self._head_pose, now, 'reachy_mini_base'))
+        self.pose_pub.publish(pose_to_msg(self._head_pose, now, self.base_frame))
+        if self.tf_broadcaster is not None:
+            transforms = [pose_to_transform(self.geometry.head_in_base(self._head_pose), now,
+                                            self.base_frame, 'head')]
+            rods = self.geometry.rods_in_base(positions[1:7], self._head_pose)
+            transforms += [pose_to_transform(rod, now, self.base_frame, f'rod_{i + 1}')
+                           for i, rod in enumerate(rods)]
+            self.tf_broadcaster.sendTransform(transforms)
 
         if goals is not None:
             try:

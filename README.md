@@ -9,6 +9,7 @@ servo bus directly, without the Pollen daemon. Targets ROS 2 Lyrical.
 | `reachy_mini_msgs` | Interfaces: `action/PlayMove`, `msg/AntennasTarget`. |
 | `reachy_mini_driver` | The driver node in Python (uses Pollen's Python wheels for motors and kinematics). |
 | `reachy_mini_driver_cpp` | The same driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json). |
+| `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured so that `robot_state_publisher` publishes what it can and the driver broadcasts the rest. |
 | `reachy_mini` | Metapackage: depends on all of the above and ships the launch file, the parameter file and the systemd unit. Install this one. |
 
 ## The driver node
@@ -19,7 +20,7 @@ executable `driver_node`:
 | | |
 |---|---|
 | parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `wake_up_on_start`, `sleep_on_shutdown` |
-| publishes | `joint_states` (9 joints: body_yaw, stewart_1..6, right_antenna, left_antenna), `~/head_pose` |
+| publishes | `joint_states` (9 joints: body_yaw, stewart_1..6, right_antenna, left_antenna), `~/head_pose`, and on `/tf` the frames `robot_state_publisher` cannot derive from joint angles: `base_link -> head` (forward kinematics of the Stewart platform) and `base_link -> rod_1..6` |
 | subscribes | `~/target_head_pose` (geometry_msgs/PoseStamped), `~/target_antennas` (reachy_mini_msgs/AntennasTarget), `~/target_body_yaw` (std_msgs/Float64) |
 | action | `~/play_move` (reachy_mini_msgs/PlayMove): plays a recorded move of a library (a HuggingFace dataset such as Pollen's `pollen-robotics/reachy-mini-emotions-library`, or a local directory of move JSON files) |
 
@@ -27,6 +28,22 @@ The control loop runs at 50 Hz: read the 9 motor positions, publish them and the
 head pose (forward kinematics), evaluate the move or goto in progress, inverse
 kinematics, write the 9 goal positions. On exit the driver goes to the sleep
 pose and releases the motors.
+
+### TF and the robot model
+
+The Stewart platform is a closed kinematic chain whose passive joints are not
+measured, so `robot_state_publisher` alone cannot place the head. The split is:
+
+* `robot_state_publisher` (started by `driver.launch.py`, model from
+  `reachy_mini_description`) publishes the fixed frames and the revolute joints
+  it gets from `joint_states`: body yaw, the six motor horns, the two antennas,
+  the camera frames (`camera`, `camera_optical`) attached to the head;
+* the driver broadcasts `base_link -> head` from its forward kinematics and
+  `base_link -> rod_1..6` from the horn tips and the platform anchors, at the
+  loop rate (`publish_tf`, `base_frame` parameters).
+
+`ros2 launch reachy_mini driver.launch.py serial_port:=fake rviz:=true` shows the
+model moving in RViz without a robot.
 
 ## Installation
 

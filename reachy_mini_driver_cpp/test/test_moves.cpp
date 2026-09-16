@@ -86,6 +86,25 @@ TEST(Kinematics, IkFkRoundTrip)
   EXPECT_FALSE(kin.ik(impossible, 0.0).has_value());
 }
 
+TEST(Kinematics, RodsHaveTheRodLength)
+{
+  Kinematics kin;
+  Pose target = Pose::Identity();
+  target.translation() = Eigen::Vector3d(0.01, 0.0, 0.015);
+  target.linear() = (Eigen::AngleAxisd(0.17, Eigen::Vector3d::UnitX()) *
+    Eigen::AngleAxisd(-0.14, Eigen::Vector3d::UnitY()) *
+    Eigen::AngleAxisd(0.26, Eigen::Vector3d::UnitZ())).toRotationMatrix();
+  const auto joints = kin.ik(target, 0.0);
+  ASSERT_TRUE(joints.has_value());
+  for (double l : kin.rodLengths(*joints, target)) {
+    EXPECT_NEAR(l, kin.rodLength(), 1e-4);
+  }
+  const auto rods = kin.rodsInBase(*joints, target);
+  ASSERT_EQ(rods.size(), 6u);
+  EXPECT_NEAR(rods[0].rotation().determinant(), 1.0, 1e-9);
+  EXPECT_NEAR(kin.headInBase(Pose::Identity()).translation().z(), kin.headZOffset(), 1e-12);
+}
+
 TEST(Kinematics, InterpolateHalfway)
 {
   Pose a = Pose::Identity();

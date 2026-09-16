@@ -16,6 +16,8 @@
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_msgs</depend>
   <depend>eigen</depend>
   <depend>nlohmann-json-dev</depend>
   <exec_depend>ros2launch</exec_depend>

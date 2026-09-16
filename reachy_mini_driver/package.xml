@@ -12,6 +12,7 @@
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>tf2_ros_py</depend>
   <depend>python3-numpy</depend>
   <depend>python3-scipy</depend>
   <!-- reachy_mini (pip): motor controller, kinematics and move loader. Not a rosdep key;

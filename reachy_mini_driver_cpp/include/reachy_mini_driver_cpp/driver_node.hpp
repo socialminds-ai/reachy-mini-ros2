@@ -38,6 +38,7 @@
 #include "reachy_mini_msgs/msg/antennas_target.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "tf2_ros/transform_broadcaster.h"
 
 namespace reachy_mini_driver
 {
@@ -93,6 +94,8 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  std::string base_frame_{"base_link"};
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Subscription<reachy_mini_msgs::msg::AntennasTarget>::SharedPtr antennas_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr body_yaw_sub_;

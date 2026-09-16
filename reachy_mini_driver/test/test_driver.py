@@ -26,6 +26,7 @@ from reachy_mini_driver.bus import FakeBus
 from reachy_mini_driver.driver_node import DriverNode, INIT_ANTENNAS
 from reachy_mini_msgs.action import PlayMove
 from sensor_msgs.msg import JointState
+from tf2_msgs.msg import TFMessage
 
 MOVES_DIR = os.path.join(os.path.dirname(__file__), 'moves')
 
@@ -129,3 +130,20 @@ def test_play_move_unknown_is_aborted(driver):
     assert not result_future.result().result.completed
     assert 'not found' in result_future.result().result.message
     client_node.destroy_node()
+
+
+def test_tf_frames_are_broadcast(driver):
+    node, _ = driver
+    received = []
+    listener = rclpy.create_node('tf_listener')
+    listener.create_subscription(TFMessage, '/tf', received.append, 10)
+    deadline = time.monotonic() + 3.0
+    while time.monotonic() < deadline and len(received) < 3:
+        rclpy.spin_once(listener, timeout_sec=0.05)
+    assert received
+    children = {t.child_frame_id for t in received[-1].transforms}
+    assert children == {'head', 'rod_1', 'rod_2', 'rod_3', 'rod_4', 'rod_5', 'rod_6'}
+    head = next(t for t in received[-1].transforms if t.child_frame_id == 'head')
+    assert head.header.frame_id == 'base_link'
+    assert 0.15 < head.transform.translation.z < 0.20      # rest height of the head
+    listener.destroy_node()

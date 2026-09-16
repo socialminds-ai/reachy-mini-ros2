@@ -23,6 +23,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace reachy_mini_driver
 {
@@ -45,9 +46,28 @@ public:
   /// Reset the FK warm start.
   void resetFk(const Pose & head_pose);
 
+  /// The `head` frame in the base frame: the FK pose plus the rest height.
+  Pose headInBase(const Pose & head_pose) const;
+  /// Pose of each of the 6 rods in the base frame: origin at the horn tip, x axis
+  /// towards the anchor on the platform (rods are symmetric, roll is arbitrary).
+  std::vector<Pose> rodsInBase(const Joints & joints, const Pose & head_pose) const;
+  /// Distance horn tip <-> anchor of each rod (equals rodLength() for a consistent state).
+  std::vector<double> rodLengths(const Joints & joints, const Pose & head_pose) const;
+  double rodLength() const {return rod_length_;}
+  double headZOffset() const {return head_z_offset_;}
+
 private:
+  struct Leg
+  {
+    Pose t_base_motor;
+    Eigen::Vector3d anchor_head;
+  };
   struct Impl;
   std::unique_ptr<Impl> impl_;
+  std::vector<Leg> legs_;
+  double arm_length_{0.0};
+  double rod_length_{0.0};
+  double head_z_offset_{0.0};
 };
 
 /// Linear interpolation between two poses (translation lerp, rotation slerp), t in [0, 1].

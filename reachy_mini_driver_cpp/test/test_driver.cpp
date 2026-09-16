@@ -28,6 +28,7 @@
 #include "reachy_mini_driver_cpp/driver_node.hpp"
 #include "reachy_mini_msgs/action/play_move.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "tf2_msgs/msg/tf_message.hpp"
 
 using namespace std::chrono_literals;
 using reachy_mini_driver::DriverNode;
@@ -109,6 +110,26 @@ TEST_F(DriverTest, JointStatesArePublished)
   ASSERT_GE(count, 5);
   EXPECT_EQ(last.name[0], "body_yaw");
   EXPECT_EQ(last.position.size(), 9u);
+}
+
+TEST_F(DriverTest, TfFramesAreBroadcast)
+{
+  auto listener = std::make_shared<rclcpp::Node>("tf_listener");
+  tf2_msgs::msg::TFMessage last;
+  int count = 0;
+  auto sub = listener->create_subscription<tf2_msgs::msg::TFMessage>(
+    "/tf", 10, [&](const tf2_msgs::msg::TFMessage & m) {++count; last = m;});
+  const auto deadline = std::chrono::steady_clock::now() + 3s;
+  while (std::chrono::steady_clock::now() < deadline && count < 3) {
+    rclcpp::spin_some(listener);
+    std::this_thread::sleep_for(10ms);
+  }
+  ASSERT_GE(count, 3);
+  ASSERT_EQ(last.transforms.size(), 7u);
+  EXPECT_EQ(last.transforms[0].child_frame_id, "head");
+  EXPECT_EQ(last.transforms[0].header.frame_id, "base_link");
+  EXPECT_GT(last.transforms[0].transform.translation.z, 0.15);
+  EXPECT_EQ(last.transforms[6].child_frame_id, "rod_6");
 }
 
 TEST_F(DriverTest, TargetHeadPoseMovesThePlatform)

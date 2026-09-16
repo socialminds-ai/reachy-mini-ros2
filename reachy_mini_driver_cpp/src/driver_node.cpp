@@ -21,6 +21,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 namespace reachy_mini_driver
 {
@@ -61,6 +62,24 @@ geometry_msgs::msg::PoseStamped toMsg(
   return msg;
 }
 
+geometry_msgs::msg::TransformStamped toTransform(
+  const Pose & p, const rclcpp::Time & stamp, const std::string & parent, const std::string & child)
+{
+  geometry_msgs::msg::TransformStamped t;
+  t.header.stamp = stamp;
+  t.header.frame_id = parent;
+  t.child_frame_id = child;
+  t.transform.translation.x = p.translation().x();
+  t.transform.translation.y = p.translation().y();
+  t.transform.translation.z = p.translation().z();
+  const Eigen::Quaterniond q(p.rotation());
+  t.transform.rotation.x = q.x();
+  t.transform.rotation.y = q.y();
+  t.transform.rotation.z = q.z();
+  t.transform.rotation.w = q.w();
+  return t;
+}
+
 Pose fromMsg(const geometry_msgs::msg::PoseStamped & msg)
 {
   const auto & o = msg.pose.orientation;
@@ -85,6 +104,9 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   declare_parameter("dataset", std::string(kDefaultDataset));
   declare_parameter("wake_up_on_start", true);
   declare_parameter("sleep_on_shutdown", true);
+  declare_parameter("publish_tf", true);
+  declare_parameter("base_frame", "base_link");
+  base_frame_ = get_parameter("base_frame").as_string();
 
   const auto port = get_parameter("serial_port").as_string();
   if (bus) {
@@ -106,6 +128,9 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
 
   joint_pub_ = create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("~/head_pose", 10);
+  if (get_parameter("publish_tf").as_bool()) {
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+  }
   pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
     "~/target_head_pose", 10, [this](const geometry_msgs::msg::PoseStamped & msg) {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -212,7 +237,19 @@ void DriverNode::tick()
   js.name.assign(kMotorNames.begin(), kMotorNames.end());
   js.position.assign(positions.begin(), positions.end());
   joint_pub_->publish(js);
-  pose_pub_->publish(toMsg(head_pose, now, "reachy_mini_base"));
+  pose_pub_->publish(toMsg(head_pose, now, base_frame_));
+  if (tf_broadcaster_) {
+    // what robot_state_publisher cannot compute: the head (closed chain) and the rods
+    std::vector<geometry_msgs::msg::TransformStamped> transforms;
+    transforms.push_back(toTransform(kinematics_.headInBase(head_pose), now, base_frame_, "head"));
+    Joints j;
+    std::copy_n(positions.begin(), 7, j.begin());
+    const auto rods = kinematics_.rodsInBase(j, head_pose);
+    for (std::size_t i = 0; i < rods.size(); ++i) {
+      transforms.push_back(toTransform(rods[i], now, base_frame_, "rod_" + std::to_string(i + 1)));
+    }
+    tf_broadcaster_->sendTransform(transforms);
+  }
 
   if (goals) {
     try {
