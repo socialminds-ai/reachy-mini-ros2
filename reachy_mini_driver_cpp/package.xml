@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>reachy_mini_driver_cpp</name>
+  <version>0.1.0</version>
+  <description>Bare-metal hardware driver for the Reachy Mini (C++): owns the servo bus through reachy_mini_c, runs the 50 Hz control loop, publishes joint states and plays recorded moves. Replaces the Pollen daemon.</description>
+  <maintainer email="severin@guakamole.org">Séverin Lemaignan</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>reachy_mini_c</depend>
+  <depend>reachy_mini_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>eigen</depend>
+  <depend>nlohmann-json-dev</depend>
+  <exec_depend>ros2launch</exec_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

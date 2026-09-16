@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["reachy_mini_c", "vendor/reachy_mini_motor_controller", "vendor/reachy_mini_kinematics"]
+
+[profile.release]
+opt-level = 3
+lto = "thin"

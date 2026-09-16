@@ -1,0 +1,11 @@
+[package]
+name = "reachy-mini-kinematics"
+version = "1.0.3"
+edition = "2024"
+description = "Vendored subset of Pollen Robotics' reachy_mini_rust_kinematics (pure Rust, no Python)"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+nalgebra = "0.32.3"

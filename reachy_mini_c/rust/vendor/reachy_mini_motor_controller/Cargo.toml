@@ -1,0 +1,13 @@
+[package]
+name = "reachy-mini-motor-controller"
+version = "1.5.6"
+edition = "2024"
+description = "Vendored subset of Pollen Robotics' reachy_mini_motor_controller (sync API only)"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+log = "0.4"
+rustypot = "1.7"
+serialport = { version = "4.7", default-features = false }

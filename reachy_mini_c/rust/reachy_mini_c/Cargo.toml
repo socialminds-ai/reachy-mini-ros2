@@ -1,0 +1,17 @@
+[package]
+name = "reachy_mini_c"
+version = "0.1.0"
+edition = "2024"
+description = "C ABI over Pollen Robotics' Reachy Mini motor controller and kinematics crates"
+license = "Apache-2.0"
+
+[lib]
+name = "reachy_mini_c"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+reachy-mini-motor-controller = { path = "../vendor/reachy_mini_motor_controller" }
+reachy-mini-kinematics = { path = "../vendor/reachy_mini_kinematics" }
+nalgebra = "0.32.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
