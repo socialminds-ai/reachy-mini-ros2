@@ -4,7 +4,7 @@
   <name>reachy_mini_driver</name>
   <version>0.1.0</version>
   <description>Bare-metal hardware driver for the Reachy Mini (Python): owns the servo bus, runs the 50 Hz control loop, publishes joint states and plays recorded moves. Replaces the Pollen daemon.</description>
-  <maintainer email="severin@guakamole.org">Séverin Lemaignan</maintainer>
+  <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
@@ -15,7 +15,7 @@
   <depend>python3-numpy</depend>
   <depend>python3-scipy</depend>
   <!-- reachy_mini (pip): motor controller, kinematics and move loader. Not a rosdep key;
-       installed by install_reachy_mini_sdk (see the tutorial, Part 2.4). -->
+       see README.md (Installation). -->
   <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

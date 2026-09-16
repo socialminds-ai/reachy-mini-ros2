@@ -16,7 +16,7 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='Séverin Lemaignan',
-    maintainer_email='severin@guakamole.org',
+    maintainer_email='severin.lemaignan@iiia.csic.es',
     description='Bare-metal hardware driver for the Reachy Mini (Python).',
     license='Apache-2.0',
     entry_points={

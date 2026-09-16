@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(reachy_mini_c VERSION 0.1.0 LANGUAGES C CXX)
 
-find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
 
 # --- Build the Rust workspace with cargo ---------------------------------------
 find_program(CARGO cargo REQUIRED)
@@ -29,10 +30,10 @@ set_target_properties(reachy_mini_c PROPERTIES
 install(FILES ${RUST_LIB} DESTINATION lib)
 install(DIRECTORY include/ DESTINATION include)
 
-# Downstream: find_package(reachy_mini_c) then target_link_libraries(x reachy_mini_c::reachy_mini_c)
-ament_export_include_directories(include)
+# Downstream: find_package(reachy_mini_c) then target_link_libraries(x reachy_mini_c::reachy_mini_c).
 # The library is an imported (cargo-built) target, so it is exported through the
-# CONFIG_EXTRAS file below rather than ament_export_libraries().
+# CONFIG_EXTRAS file below rather than ament_export_libraries(); ament_auto's
+# <pkg>_LIBRARIES / _INCLUDE_DIRS variables are set there too.
 install(FILES cmake/reachy_mini_c-extras.cmake DESTINATION share/${PROJECT_NAME}/cmake)
 
 # --- Tests ---------------------------------------------------------------------
@@ -45,4 +46,4 @@ if(BUILD_TESTING)
   add_dependencies(test_kinematics reachy_mini_c_cargo)
 endif()
 
-ament_package(CONFIG_EXTRAS cmake/reachy_mini_c-extras.cmake)
+ament_auto_package(CONFIG_EXTRAS cmake/reachy_mini_c-extras.cmake)

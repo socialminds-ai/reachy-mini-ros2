@@ -1,10 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(reachy_mini_msgs)
 
-find_package(ament_cmake REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-find_package(action_msgs REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/PlayMove.action"
@@ -17,5 +15,4 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_export_dependencies(rosidl_default_runtime)
-ament_package()
+ament_auto_package()

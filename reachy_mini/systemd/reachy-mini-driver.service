@@ -1,0 +1,35 @@
+# Runs the Reachy Mini bare-metal driver at boot, instead of the Pollen daemon.
+#
+# Install (as root on the robot):
+#   cp reachy-mini-driver.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now reachy-mini-driver
+#
+# The driver and the Pollen daemon cannot run together (one owner of the servo
+# bus): Conflicts= makes systemd stop one when the other starts. Disable the
+# daemon at boot with `systemctl disable reachy-mini-daemon` if this unit is
+# enabled, so the two do not race at startup.
+#
+# Adapt ExecStart to where ROS 2 is installed: the line below assumes a native
+# ROS 2 Lyrical installation with the reachy_mini packages installed in /opt/ros.
+# Add `lang:=python` for the Python driver, `params_file:=...` for other parameters.
+# If ROS runs in a container, wrap the command with `docker exec <container> ...`.
+[Unit]
+Description=Reachy Mini bare-metal ROS 2 driver
+After=network-online.target
+Conflicts=reachy-mini-daemon.service
+
+[Service]
+Type=simple
+User=pollen
+SupplementaryGroups=dialout
+Environment=ROS_DISTRO=lyrical
+ExecStart=/bin/bash -lc 'source /opt/ros/${ROS_DISTRO}/setup.bash && exec ros2 launch reachy_mini driver.launch.py'
+# SIGINT (forwarded by ros2 launch) lets the driver put the robot to sleep and
+# release the motors before exiting
+KillSignal=SIGINT
+TimeoutStopSec=10
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

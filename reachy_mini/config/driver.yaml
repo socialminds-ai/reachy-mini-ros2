@@ -1,0 +1,8 @@
+# Parameters of the Reachy Mini bare-metal driver (both the Python and the C++ node).
+reachy_mini_driver:
+  ros__parameters:
+    serial_port: /dev/ttyAMA3          # servo bus; 'fake' = ideal simulated bus (no hardware)
+    rate: 50.0                         # control loop frequency, Hz
+    dataset: pollen-robotics/reachy-mini-emotions-library   # default move library
+    wake_up_on_start: true             # go to the rest pose when the driver starts
+    sleep_on_shutdown: true            # go to the sleep pose and release the motors on exit

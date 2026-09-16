@@ -4,10 +4,10 @@
   <name>reachy_mini_c</name>
   <version>0.1.0</version>
   <description>C library (Rust inside) to drive the Reachy Mini servos and compute its head kinematics, for C/C++ ROS 2 nodes.</description>
-  <maintainer email="severin@guakamole.org">Séverin Lemaignan</maintainer>
+  <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
   <build_depend>cargo</build_depend>
   <build_depend>rustc</build_depend>
 
