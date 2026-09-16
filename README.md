@@ -19,7 +19,7 @@ executable `driver_node`:
 
 | | |
 |---|---|
-| parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `wake_up_on_start`, `sleep_on_shutdown` |
+| parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `wake_up_on_start`, `sleep_on_shutdown`, `publish_tf`, `base_frame` |
 | publishes | `joint_states` (9 joints: body_yaw, stewart_1..6, right_antenna, left_antenna), `~/head_pose`, and on `/tf` the frames `robot_state_publisher` cannot derive from joint angles: `base_link -> head` (forward kinematics of the Stewart platform) and `base_link -> rod_1..6` |
 | subscribes | `~/target_head_pose` (geometry_msgs/PoseStamped), `~/target_antennas` (reachy_mini_msgs/AntennasTarget), `~/target_body_yaw` (std_msgs/Float64) |
 | action | `~/play_move` (reachy_mini_msgs/PlayMove): plays a recorded move of a library (a HuggingFace dataset such as Pollen's `pollen-robotics/reachy-mini-emotions-library`, or a local directory of move JSON files) |
@@ -142,6 +142,12 @@ if ROS runs in a container on the robot, to wrap the command with
 
 To go back to the Pollen stack: `sudo systemctl disable --now reachy-mini-driver
 && sudo systemctl enable --now reachy-mini-daemon`.
+
+## Design
+
+`DESIGN.md` explains where the design comes from: what the Pollen daemon does every
+20 ms, the conventions inherited from the SDK, and how they shaped the ROS driver,
+its action, its TF frames and its tests.
 
 ## Development
 

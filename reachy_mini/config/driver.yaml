@@ -6,3 +6,5 @@ reachy_mini_driver:
     dataset: pollen-robotics/reachy-mini-emotions-library   # default move library
     wake_up_on_start: true             # go to the rest pose when the driver starts
     sleep_on_shutdown: true            # go to the sleep pose and release the motors on exit
+    publish_tf: true                   # broadcast base_frame -> head and -> rod_1..6 on /tf
+    base_frame: base_link              # the robot base frame (root of reachy_mini_description)

@@ -177,7 +177,8 @@ class DriverNode(Node):
         self.pose_pub = self.create_publisher(PoseStamped, '~/head_pose', 10)
         self.base_frame = self.get_parameter('base_frame').value
         self.geometry = PlatformGeometry()
-        self.tf_broadcaster = TransformBroadcaster(self) if self.get_parameter('publish_tf').value else None
+        self.tf_broadcaster = (TransformBroadcaster(self)
+                               if self.get_parameter('publish_tf').value else None)
         self.create_subscription(PoseStamped, '~/target_head_pose', self._on_target_pose, 10)
         self.create_subscription(AntennasTarget, '~/target_antennas', self._on_target_antennas, 10)
         self.create_subscription(Float64, '~/target_body_yaw', self._on_target_body_yaw, 10)

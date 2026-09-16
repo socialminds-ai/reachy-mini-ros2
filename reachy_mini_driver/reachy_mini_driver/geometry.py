@@ -24,8 +24,8 @@ Geometry comes from the SDK's kinematics_data.json (the same file the
 analytical kinematics use).
 """
 
-import json
 from importlib.resources import files
+import json
 from typing import List, Tuple
 
 import numpy as np
@@ -47,7 +47,7 @@ class PlatformGeometry:
         self.anchor_head = [np.array(m['branch_position']) for m in data['motors']]
 
     def head_in_base(self, head_pose: np.ndarray) -> np.ndarray:
-        """The `head` frame in `base_link`: the FK pose plus the rest height."""
+        """Return the `head` frame in `base_link`: the FK pose plus the rest height."""
         t = np.array(head_pose, dtype=float)
         t[2, 3] += self.head_z_offset
         return t

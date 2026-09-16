@@ -15,6 +15,7 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
+    extras_require={'test': ['pytest']},   # tells colcon to run the tests with pytest
     maintainer='Séverin Lemaignan',
     maintainer_email='severin.lemaignan@iiia.csic.es',
     description='Bare-metal hardware driver for the Reachy Mini (Python).',

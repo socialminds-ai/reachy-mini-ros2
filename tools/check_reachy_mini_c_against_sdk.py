@@ -1,7 +1,7 @@
 """Developer check: compare reachy_mini_c with the Python SDK kinematics.
 
 Usage (needs the reachy_mini SDK installed, e.g. in its venv):
-    python3 test/check_against_sdk.py build/reachy_mini_c/cargo/release/libreachy_mini_c.so
+    python3 tools/check_reachy_mini_c_against_sdk.py build/reachy_mini_c/cargo/release/libreachy_mini_c.so
 """
 import ctypes, numpy as np, sys
 from reachy_mini.kinematics.analytical_kinematics import AnalyticalKinematics

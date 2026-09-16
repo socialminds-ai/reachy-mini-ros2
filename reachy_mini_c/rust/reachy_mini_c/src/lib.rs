@@ -250,7 +250,7 @@ pub extern "C" fn rmc_kinematics_new() -> *mut RmcKinematics {
         };
         kin.add_branch(branch, t_world_motor, if solution { 1.0 } else { -1.0 });
     }
-    // Same initial guess as the SDK: the sleep pose, shifted by the head offset.
+    // Initial FK guess: the rest pose (identity) at the head's rest height.
     let mut init = Matrix4::<f64>::identity();
     init[(2, 3)] = data.head_z_offset;
     kin.reset_forward_kinematics(init);
