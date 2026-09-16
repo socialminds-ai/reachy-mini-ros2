@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_c
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2026-09-16)
+------------------
 * TF and robot model: reachy_mini_description (URDF + meshes from the SDK model, restructured for robot_state_publisher) and TF broadcasting of the head and rods from the drivers' kinematics
   - reachy_mini_description: converter script from the SDK URDF, 41 meshes,
   description.launch.py (robot_state_publisher, optional RViz), RViz config.
