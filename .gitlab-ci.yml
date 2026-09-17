@@ -1,0 +1,41 @@
+# The build/test/package/upload jobs are the lab's centralised ones
+# (socialminds/socialminds-cicd). This file only adds the robot container image.
+# The repo is registered as `type: ros2-custom` in socialminds-cicd/repos.yaml
+# so that this file (and not the remote template) is the project's CI config.
+include:
+  - project: 'socialminds/socialminds-cicd'
+    ref: main
+    file: '/templates/default.gitlab-ci.yml'
+
+# Must list every stage: an include does not merge `stages:`.
+stages:
+  - test
+  - package
+  - upload
+  - trigger
+  - image
+
+# The ROS 2 container that runs on the robot (arm64, built under QEMU: slow,
+# so it is a MANUAL job; run it from the pipeline page after changing docker/).
+# Result: $CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical
+robot-image:
+  stage: image
+  image: docker:27
+  services: [docker:27-dind]
+  needs: []
+  variables:
+    DOCKER_BUILDKIT: "1"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker context create tls-ctx || true
+    - docker buildx create tls-ctx --use --name multiarch --driver docker-container || docker buildx use multiarch
+  script:
+    - docker buildx build --platform linux/arm64
+        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical" --push docker/
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+      allow_failure: true

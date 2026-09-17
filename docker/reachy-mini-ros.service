@@ -1,0 +1,28 @@
+# Keeps the ROS 2 container running on the robot. Nodes are started inside it
+# with `docker exec reachy-mini-ros ros2 ...` or by their own units
+# (see reachy-mini-driver-docker.service).
+#
+# --network host : ROS/zenoh reachable on the robot's IP (router on port 7447);
+#                  the Pollen daemon on localhost:8000 is reachable from inside.
+# --device       : the servo bus (usable only while the Pollen daemon is stopped).
+# huggingface    : the daemon's cache of the emotions library, read-only.
+# /home/pollen/ros : a workspace for building packages from source (optional).
+[Unit]
+Description=ROS 2 Lyrical container for the Reachy Mini
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Restart=always
+RestartSec=3
+ExecStartPre=-/usr/bin/docker rm -f reachy-mini-ros
+ExecStart=/usr/bin/docker run --rm --name reachy-mini-ros \
+    --network host \
+    --device /dev/ttyAMA3:/dev/ttyAMA3 \
+    -v /home/pollen/.cache/huggingface:/root/.cache/huggingface:ro \
+    -v /home/pollen/ros:/root/ros \
+    reachy-mini-ros:lyrical
+ExecStop=/usr/bin/docker stop reachy-mini-ros
+
+[Install]
+WantedBy=multi-user.target

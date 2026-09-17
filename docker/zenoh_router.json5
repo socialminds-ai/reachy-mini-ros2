@@ -1,0 +1,10 @@
+// Zenoh router on the robot: listens on 7447 (all interfaces); the students'
+// laptops connect to it. No multicast scouting.
+{
+  mode: "router",
+  listen: { endpoints: ["tcp/[::]:7447"] },
+  scouting: {
+    multicast: { enabled: false },
+    gossip: { enabled: true },
+  },
+}

@@ -11,6 +11,7 @@ servo bus directly, without the Pollen daemon. Targets ROS 2 Lyrical.
 | `reachy_mini_driver_cpp` | The same driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json). |
 | `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured so that `robot_state_publisher` publishes what it can and the driver broadcasts the rest. |
 | `reachy_mini` | Metapackage: depends on all of the above and ships the launch file, the parameter file and the systemd unit. Install this one. |
+| `docker/` | The ROS 2 container image for the robot and its systemd units (not a ROS package); see `ROBOT_SETUP.md`. |
 
 ## The driver node
 
@@ -44,6 +45,14 @@ measured, so `robot_state_publisher` alone cannot place the head. The split is:
 
 `ros2 launch reachy_mini driver.launch.py serial_port:=fake rviz:=true` shows the
 model moving in RViz without a robot.
+
+## On a Reachy Mini: the ROS 2 container
+
+The robot runs Debian, which has no ROS 2 Lyrical binaries, so ROS runs there in
+the Docker image of `docker/` (built by the `robot-image` pipeline job). See
+**[ROBOT_SETUP.md](ROBOT_SETUP.md)** for the step-by-step preparation of an
+off-the-shelf robot: Docker, the image, the systemd units, running the driver
+instead of the Pollen daemon.
 
 ## Installation
 

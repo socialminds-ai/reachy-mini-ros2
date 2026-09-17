@@ -1,0 +1,28 @@
+# Runs the Reachy Mini ROS 2 driver at boot, inside the reachy-mini-ros
+# container, INSTEAD OF the Pollen daemon (they cannot share the servo bus:
+# Conflicts= makes systemd stop one when the other starts).
+#
+# Install:
+#   sudo cp reachy-mini-driver-docker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl disable reachy-mini-daemon      # do not race at boot
+#   sudo systemctl enable --now reachy-mini-driver-docker
+# Back to the Pollen stack:
+#   sudo systemctl disable --now reachy-mini-driver-docker && sudo systemctl enable --now reachy-mini-daemon
+[Unit]
+Description=Reachy Mini ROS 2 driver (in the reachy-mini-ros container)
+After=reachy-mini-ros.service
+Requires=reachy-mini-ros.service
+Conflicts=reachy-mini-daemon.service
+
+[Service]
+Restart=on-failure
+RestartSec=3
+ExecStart=/usr/bin/docker exec reachy-mini-ros ros2 launch reachy_mini driver.launch.py
+# docker exec does not forward signals: stop the launch (and its driver) with
+# SIGINT from inside, so the robot goes to sleep and releases the motors.
+ExecStop=/usr/bin/docker exec reachy-mini-ros pkill -INT -f "ros2 launch reachy_mini"
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
