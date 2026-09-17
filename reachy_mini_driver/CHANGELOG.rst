@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.0 (2026-09-17)
+------------------
 * Adopt the ROS4HRI skill API instead of the private PlayMove action
   The drivers now serve the standard skills from https://ros4hri.github.io/skills.json
   under the `skills_namespace` parameter (/skill by default), with std_skills
