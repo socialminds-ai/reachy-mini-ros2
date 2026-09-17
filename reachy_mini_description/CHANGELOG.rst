@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.3.0 (2026-09-16)
 ------------------
 
