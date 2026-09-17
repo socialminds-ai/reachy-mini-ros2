@@ -3,12 +3,14 @@
 <package format="3">
   <name>reachy_mini_driver</name>
   <version>0.3.0</version>
-  <description>Bare-metal hardware driver for the Reachy Mini (Python): owns the servo bus, runs the 50 Hz control loop, publishes joint states and plays recorded moves. Replaces the Pollen daemon.</description>
+  <description>Bare-metal hardware driver for the Reachy Mini (Python): owns the servo bus, runs the 50 Hz control loop, publishes joint states and TF, and implements the ROS4HRI replay_motion and list_motions skills. Reference implementation; the C++ driver has the full skill set.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>reachy_mini_msgs</depend>
+  <depend>motions_skills</depend>
+  <depend>std_skills</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>

@@ -132,6 +132,26 @@ std::string MoveLibrary::resolveDataset(const std::string & dataset)
   return (repo / "snapshots" / sha).string();
 }
 
+std::vector<std::string> MoveLibrary::names(const std::string & dataset) const
+{
+  namespace fs = std::filesystem;
+  const std::string ds = dataset.empty() ? default_dataset_ : dataset;
+  const fs::path dir = resolveDataset(ds);
+  std::vector<std::string> out;
+  for (const fs::path & sub : {dir, dir / "data"}) {
+    if (!fs::is_directory(sub)) {
+      continue;
+    }
+    for (const auto & entry : fs::directory_iterator(sub)) {
+      if (entry.path().extension() == ".json" && entry.path().stem() != "metadata") {
+        out.push_back(entry.path().stem().string());
+      }
+    }
+  }
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
 std::shared_ptr<const RecordedMove> MoveLibrary::get(
   const std::string & move,
   const std::string & dataset)

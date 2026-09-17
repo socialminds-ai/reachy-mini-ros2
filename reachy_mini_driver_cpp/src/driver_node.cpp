@@ -17,11 +17,15 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <thread>
 #include <utility>
 #include <vector>
+
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace reachy_mini_driver
 {
@@ -44,9 +48,10 @@ const Pose kSleepHeadPose = [] {
 
 namespace
 {
+constexpr double kMaxLookPitch = 35.0 * M_PI / 180.0;   // the head cannot tilt further
+
 geometry_msgs::msg::PoseStamped toMsg(
-  const Pose & p, const rclcpp::Time & stamp,
-  const std::string & frame)
+  const Pose & p, const rclcpp::Time & stamp, const std::string & frame)
 {
   geometry_msgs::msg::PoseStamped msg;
   msg.header.stamp = stamp;
@@ -80,18 +85,35 @@ geometry_msgs::msg::TransformStamped toTransform(
   return t;
 }
 
-Pose fromMsg(const geometry_msgs::msg::PoseStamped & msg)
+Pose fromMsg(const geometry_msgs::msg::Pose & msg)
 {
-  const auto & o = msg.pose.orientation;
+  const auto & o = msg.orientation;
   Pose p = Pose::Identity();
   p.linear() = Eigen::Quaterniond(o.w, o.x, o.y, o.z).normalized().toRotationMatrix();
-  p.translation() = Eigen::Vector3d(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z);
+  p.translation() = Eigen::Vector3d(msg.position.x, msg.position.y, msg.position.z);
   return p;
 }
 
 double seconds_since(std::chrono::steady_clock::time_point t0)
 {
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+}
+
+std_skills::msg::Result makeResult(uint8_t code, const std::string & msg = "")
+{
+  std_skills::msg::Result r;
+  r.error_code = code;
+  r.error_msg = msg;
+  return r;
+}
+
+std::string join(const std::vector<std::string> & v)
+{
+  std::string out;
+  for (const auto & s : v) {
+    out += (out.empty() ? "" : ", ") + s;
+  }
+  return out;
 }
 }  // namespace
 
@@ -102,11 +124,18 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   declare_parameter("serial_port", "/dev/ttyAMA3");
   declare_parameter("rate", 50.0);
   declare_parameter("dataset", std::string(kDefaultDataset));
+  declare_parameter("extra_datasets", std::vector<std::string>{});
   declare_parameter("wake_up_on_start", true);
   declare_parameter("sleep_on_shutdown", true);
   declare_parameter("publish_tf", true);
   declare_parameter("base_frame", "base_link");
+  declare_parameter("skills_namespace", "/skill");
+  declare_parameter("glance_duration", 2.0);
+  declare_parameter("motion_initial_goto", 0.5);
   base_frame_ = get_parameter("base_frame").as_string();
+  extra_datasets_ = get_parameter("extra_datasets").as_string_array();
+  glance_duration_ = get_parameter("glance_duration").as_double();
+  motion_initial_goto_ = get_parameter("motion_initial_goto").as_double();
 
   const auto port = get_parameter("serial_port").as_string();
   if (bus) {
@@ -119,6 +148,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   library_ = MoveLibrary(get_parameter("dataset").as_string());
 
   positions_ = bus_->readPositions();
+  last_goals_ = positions_;
   Joints j;
   std::copy_n(positions_.begin(), 7, j.begin());
   head_pose_ = kinematics_.fk(j, 20);
@@ -131,11 +161,15 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   if (get_parameter("publish_tf").as_bool()) {
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
   }
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
   pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
     "~/target_head_pose", 10, [this](const geometry_msgs::msg::PoseStamped & msg) {
       std::lock_guard<std::mutex> lock(mutex_);
       goto_.reset();
-      target_pose_ = fromMsg(msg);
+      gaze_.reset();
+      target_pose_ = fromMsg(msg.pose);
     });
   antennas_sub_ = create_subscription<reachy_mini_msgs::msg::AntennasTarget>(
     "~/target_antennas", 10, [this](const reachy_mini_msgs::msg::AntennasTarget & msg) {
@@ -148,15 +182,62 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
       target_body_yaw_ = msg.data;
     });
 
-  action_server_ = rclcpp_action::create_server<PlayMove>(
-    this, "~/play_move",
-    [](const rclcpp_action::GoalUUID &, std::shared_ptr<const PlayMove::Goal>) {
+  // --- skills ---------------------------------------------------------------
+  const std::string ns = get_parameter("skills_namespace").as_string();
+  auto motion_goal_cb = [this](uint8_t priority) {
+      return acceptMotionGoal(priority) ? rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE :
+             rclcpp_action::GoalResponse::REJECT;
+    };
+  replay_server_ = rclcpp_action::create_server<ReplayMotion>(
+    this, ns + "/replay_motion",
+    [motion_goal_cb](const rclcpp_action::GoalUUID &, std::shared_ptr<const ReplayMotion::Goal> g) {
+      return motion_goal_cb(g->meta.priority);
+    },
+    [](std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>>) {
+      return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle) {
+      std::thread([this, handle] {executeReplayMotion(handle);}).detach();
+    });
+  cartesian_server_ = rclcpp_action::create_server<ExecuteCartesianTrajectory>(
+    this, ns + "/execute_cartesian_trajectory",
+    [motion_goal_cb](const rclcpp_action::GoalUUID &,
+    std::shared_ptr<const ExecuteCartesianTrajectory::Goal> g) {
+      return motion_goal_cb(g->meta.priority);
+    },
+    [](std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteCartesianTrajectory>>) {
+      return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteCartesianTrajectory>> handle) {
+      std::thread([this, handle] {executeCartesianTrajectory(handle);}).detach();
+    });
+  joint_server_ = rclcpp_action::create_server<ExecuteJointTrajectory>(
+    this, ns + "/execute_joint_trajectory",
+    [motion_goal_cb](const rclcpp_action::GoalUUID &,
+    std::shared_ptr<const ExecuteJointTrajectory::Goal> g) {
+      return motion_goal_cb(g->meta.priority);
+    },
+    [](std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteJointTrajectory>>) {
+      return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteJointTrajectory>> handle) {
+      std::thread([this, handle] {executeJointTrajectory(handle);}).detach();
+    });
+  look_at_server_ = rclcpp_action::create_server<LookAt>(
+    this, ns + "/look_at",
+    [](const rclcpp_action::GoalUUID &, std::shared_ptr<const LookAt::Goal>) {
       return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
     },
-    [](std::shared_ptr<GoalHandle>) {return rclcpp_action::CancelResponse::ACCEPT;},
-    [this](std::shared_ptr<GoalHandle> handle) {
-      std::thread([this, handle] {executePlayMove(handle);}).detach();
+    [](std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>>) {
+      return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle) {
+      std::thread([this, handle] {executeLookAt(handle);}).detach();
     });
+  list_service_ = create_service<ListMotions>(
+    ns + "/list_motions",
+    [this](const std::shared_ptr<ListMotions::Request> req,
+    std::shared_ptr<ListMotions::Response> res) {listMotions(req, res);});
 
   bus_->setTorque(true);
   if (get_parameter("wake_up_on_start").as_bool()) {
@@ -166,23 +247,31 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   const double rate = get_parameter("rate").as_double();
   timer_ = create_wall_timer(
     std::chrono::duration<double>(1.0 / rate), [this] {tick();});
-  RCLCPP_INFO(get_logger(), "driver ready on %s at %.0f Hz", port.c_str(), rate);
+  RCLCPP_INFO(
+    get_logger(), "driver ready on %s at %.0f Hz; skills under %s", port.c_str(), rate,
+    ns.c_str());
 }
 
 DriverNode::~DriverNode()
 {
-  move_cancelled_ = true;
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (current_) {
+    current_->cancelled = true;
+    current_->done = true;
+  }
 }
 
 void DriverNode::gotoPose(
-  const Pose & head, const std::array<double, 2> & antennas,
-  double duration)
+  const Pose & head, const std::array<double, 2> & antennas, double duration)
 {
   std::lock_guard<std::mutex> lock(mutex_);
   goto_ = Goto{target_pose_, head, target_antennas_, antennas, std::max(duration, 1e-3),
     std::chrono::steady_clock::now()};
 }
 
+// ---------------------------------------------------------------------------
+// the loop
+// ---------------------------------------------------------------------------
 void DriverNode::tick()
 {
   const auto now = this->now();
@@ -208,16 +297,33 @@ void DriverNode::tick()
     }
     head_pose = head_pose_;
 
-    if (move_) {
-      const double t = seconds_since(move_t0_);
-      if (move_cancelled_ || t >= move_->duration()) {
-        move_.reset();
-        move_done_ = true;
+    std::optional<std::map<std::size_t, double>> joint_goals;
+    if (current_ && current_->started && !current_->done) {
+      const double t = seconds_since(current_->t0);
+      if (current_->cancelled || current_->preempted || t >= current_->motion->duration()) {
+        if (current_->joint_space) {
+          // back to Cartesian targets consistent with where the joints are now (the head
+          // pose only if the FK estimate is solvable, otherwise the previous target stays)
+          target_antennas_ = {positions[7], positions[8]};
+          target_body_yaw_ = positions[0];
+          if (kinematics_.ik(head_pose_, target_body_yaw_)) {
+            target_pose_ = head_pose_;
+          }
+        }
+        current_->done = true;
       } else {
-        const auto s = move_->evaluate(std::min(t, move_->duration() - 1e-2));
-        target_pose_ = s.head;
-        target_antennas_ = s.antennas;
-        target_body_yaw_ = s.body_yaw;
+        const Targets targets =
+          current_->motion->evaluate(std::min(t, current_->motion->duration() - 1e-3));
+        if (targets.head) {
+          target_pose_ = *targets.head;
+        }
+        if (targets.antennas) {
+          target_antennas_ = *targets.antennas;
+        }
+        if (targets.body_yaw) {
+          target_body_yaw_ = *targets.body_yaw;
+        }
+        joint_goals = targets.joints;
       }
     } else if (goto_) {
       const double a = std::min(1.0, seconds_since(goto_->t0) / goto_->duration);
@@ -228,8 +334,22 @@ void DriverNode::tick()
       if (a >= 1.0) {
         goto_.reset();
       }
+    } else if (gaze_) {
+      applyGaze();
     }
-    goals = computeGoals();
+
+    if (joint_goals) {
+      Positions g = last_goals_;
+      for (const auto & [index, value] : *joint_goals) {
+        g[index] = value;
+      }
+      goals = g;
+    } else {
+      goals = computeGoals();
+    }
+    if (goals) {
+      last_goals_ = *goals;
+    }
   }
 
   sensor_msgs::msg::JointState js;
@@ -274,59 +394,402 @@ std::optional<Positions> DriverNode::computeGoals()
   return goals;
 }
 
-void DriverNode::executePlayMove(std::shared_ptr<GoalHandle> handle)
+// Called under mutex_: keep the head pointed at the gaze target (look_at).
+void DriverNode::applyGaze()
+{
+  if (gaze_->glancing && std::chrono::steady_clock::now() >= gaze_->glance_end) {
+    if (gaze_->previous) {
+      gaze_ = Gaze{*gaze_->previous, false, {}, std::nullopt};
+    } else {
+      gaze_.reset();
+      goto_ = Goto{target_pose_, kInitHeadPose, target_antennas_, target_antennas_, 1.0,
+        std::chrono::steady_clock::now()};
+      return;
+    }
+  }
+  geometry_msgs::msg::PointStamped in_base;
+  try {
+    auto target = gaze_->target;
+    target.header.stamp = rclcpp::Time(0);   // latest available transform
+    in_base = tf_buffer_->transform(target, base_frame_, tf2::durationFromSec(0.0));
+  } catch (const tf2::TransformException & e) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000, "look_at: cannot transform target from '%s': %s",
+      gaze_->target.header.frame_id.c_str(), e.what());
+    return;
+  }
+  target_pose_ = lookPose(Eigen::Vector3d(in_base.point.x, in_base.point.y, in_base.point.z));
+}
+
+Pose DriverNode::lookPose(const Eigen::Vector3d & point) const
+{
+  // the head frame at rest sits at the rest height above base_link, looking along +x
+  const Eigen::Vector3d origin(0.0, 0.0, kinematics_.headZOffset());
+  const Eigen::Vector3d d = point - origin;
+  const double yaw = std::atan2(d.y(), d.x());
+  const double pitch = std::clamp(-std::atan2(d.z(), std::hypot(d.x(), d.y())),
+      -kMaxLookPitch, kMaxLookPitch);
+  Pose p = Pose::Identity();
+  p.linear() = (Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) *
+    Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY())).toRotationMatrix();
+  return p;
+}
+
+// ---------------------------------------------------------------------------
+// motions (replay_motion, execute_*_trajectory)
+// ---------------------------------------------------------------------------
+bool DriverNode::acceptMotionGoal(uint8_t priority)
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (current_ && !current_->done && priority < current_->priority) {
+    RCLCPP_WARN(
+      get_logger(), "motion goal rejected: '%s' (priority %u) is running", current_->name.c_str(),
+      current_->priority);
+    return false;
+  }
+  return true;
+}
+
+std::shared_ptr<DriverNode::Execution> DriverNode::startMotion(
+  std::shared_ptr<const Motion> motion, const std::string & name, uint8_t priority,
+  double initial_goto)
+{
+  auto exec = std::make_shared<Execution>();
+  exec->motion = motion;
+  exec->name = name;
+  exec->priority = priority;
+  exec->joint_space = dynamic_cast<const JointMotion *>(motion.get()) != nullptr;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (current_ && !current_->done) {
+      RCLCPP_INFO(get_logger(), "'%s' preempted by '%s'", current_->name.c_str(), name.c_str());
+      current_->preempted = true;
+      current_->done = true;
+    }
+    current_ = exec;          // reserves the slot: gaze and gotos yield to it
+    goto_.reset();
+  }
+  // 1. reach the first sample smoothly (Cartesian motions only)
+  const Targets first = motion->evaluate(0.0);
+  if (initial_goto > 0.0 && first.head) {
+    gotoPose(*first.head, first.antennas.value_or(target_antennas_), initial_goto);
+    const auto until = std::chrono::steady_clock::now() +
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::duration<double>(initial_goto));
+    while (std::chrono::steady_clock::now() < until && !exec->preempted && !exec->cancelled) {
+      std::this_thread::sleep_for(10ms);
+    }
+  }
+  // 2. play
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    goto_.reset();
+    exec->t0 = std::chrono::steady_clock::now();
+    exec->started = true;
+    if (exec->preempted || exec->cancelled) {
+      exec->done = true;
+    }
+  }
+  return exec;
+}
+
+template<typename Handle, typename Feedback>
+uint8_t DriverNode::runMotion(
+  std::shared_ptr<Execution> exec, std::shared_ptr<Handle> handle,
+  std::shared_ptr<Feedback> feedback)
+{
+  while (!exec->done) {
+    std::this_thread::sleep_for(50ms);
+    if (handle->is_canceling()) {
+      exec->cancelled = true;
+      while (!exec->done) {
+        std::this_thread::sleep_for(10ms);
+      }
+      return Result::ROS_ECANCELED;
+    }
+    const double elapsed = seconds_since(exec->t0);
+    feedback->feedback.data_float =
+      static_cast<float>(std::min(1.0, elapsed / exec->motion->duration()));
+    feedback->feedback.data_str = exec->name;
+    handle->publish_feedback(feedback);
+  }
+  if (exec->preempted) {
+    return Result::ROS_EINTR;
+  }
+  if (exec->cancelled) {
+    return Result::ROS_ECANCELED;
+  }
+  return Result::ROS_ENOERR;
+}
+
+std::vector<std::string> DriverNode::allMotionNames() const
+{
+  std::set<std::string> names;
+  for (const auto & n : library_.names()) {
+    names.insert(n);
+  }
+  for (const auto & ds : extra_datasets_) {
+    try {
+      for (const auto & n : library_.names(ds)) {
+        names.insert(n);
+      }
+    } catch (const std::exception & e) {
+      RCLCPP_WARN(get_logger(), "cannot list dataset '%s': %s", ds.c_str(), e.what());
+    }
+  }
+  return std::vector<std::string>(names.begin(), names.end());
+}
+
+void DriverNode::executeReplayMotion(
+  std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle)
 {
   const auto goal = handle->get_goal();
-  auto result = std::make_shared<PlayMove::Result>();
+  auto result = std::make_shared<ReplayMotion::Result>();
   std::shared_ptr<const RecordedMove> move;
   try {
-    move = library_.get(goal->move, goal->dataset);
+    if (goal->name.empty()) {
+      throw std::runtime_error("empty motion name");
+    }
+    try {
+      move = library_.get(goal->name);
+    } catch (const std::exception &) {
+      for (const auto & ds : extra_datasets_) {
+        try {
+          move = library_.get(goal->name, ds);
+          break;
+        } catch (const std::exception &) {
+        }
+      }
+      if (!move) {
+        throw std::runtime_error("unknown motion '" + goal->name + "'");
+      }
+    }
   } catch (const std::exception & e) {
-    result->message = e.what();
+    // the spec asks for the list of available motions in that case
+    result->result = makeResult(
+      Result::ROS_EBADMSG, std::string(e.what()) + "; available: " + join(allMotionNames()));
     handle->abort(result);
     return;
   }
-  RCLCPP_INFO(get_logger(), "playing '%s' (%.1f s)", goal->move.c_str(), move->duration());
-
-  // 1. reach the first pose of the move (so the move does not start with a jump)
-  const auto first = move->evaluate(0.0);
-  if (goal->initial_goto_duration > 0) {
-    gotoPose(first.head, first.antennas, goal->initial_goto_duration);
-    std::this_thread::sleep_for(std::chrono::duration<double>(goal->initial_goto_duration));
+  RCLCPP_INFO(
+    get_logger(), "playing '%s' (%.1f s) for %s", goal->name.c_str(), move->duration(),
+    goal->meta.caller.empty() ? "unknown" : goal->meta.caller.c_str());
+  auto exec = startMotion(
+    std::make_shared<CartesianMotion>(move), goal->name, goal->meta.priority,
+    motion_initial_goto_);
+  auto feedback = std::make_shared<ReplayMotion::Feedback>();
+  const uint8_t code = runMotion(exec, handle, feedback);
+  result->result = makeResult(code);
+  if (code == Result::ROS_ENOERR) {
+    handle->succeed(result);
+  } else if (code == Result::ROS_ECANCELED) {
+    handle->canceled(result);
+  } else {
+    handle->abort(result);
   }
-  // 2. play, ticking feedback until the loop says it is over
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    move_cancelled_ = false;
-    move_done_ = false;
-    move_ = move;
-    move_t0_ = std::chrono::steady_clock::now();
-  }
-  auto feedback = std::make_shared<PlayMove::Feedback>();
-  while (!move_done_) {
-    std::this_thread::sleep_for(100ms);
-    if (handle->is_canceling()) {
-      move_cancelled_ = true;
-      while (!move_done_) {
-        std::this_thread::sleep_for(10ms);
-      }
-      result->message = "cancelled";
-      handle->canceled(result);
-      return;
-    }
-    const double elapsed = seconds_since(move_t0_);
-    feedback->elapsed = static_cast<float>(elapsed);
-    feedback->progress = static_cast<float>(std::min(1.0, elapsed / move->duration()));
-    handle->publish_feedback(feedback);
-  }
-  result->completed = true;
-  result->message = "done";
-  handle->succeed(result);
 }
 
+void DriverNode::executeCartesianTrajectory(
+  std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteCartesianTrajectory>> handle)
+{
+  const auto goal = handle->get_goal();
+  auto result = std::make_shared<ExecuteCartesianTrajectory::Result>();
+  const auto & traj = goal->trajectory;
+  std::vector<MoveSample> samples;
+  std::string error;
+  if (traj.points.empty()) {
+    error = "empty trajectory";
+  } else if (!traj.tracked_frame.empty() && traj.tracked_frame != "head") {
+    error = "tracked_frame must be 'head' (got '" + traj.tracked_frame + "')";
+  } else if (!traj.header.frame_id.empty() && traj.header.frame_id != base_frame_) {
+    error = "poses must be expressed in '" + base_frame_ + "' (got '" + traj.header.frame_id + "')";
+  } else {
+    std::array<double, 2> antennas;
+    double body_yaw;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      antennas = target_antennas_;
+      body_yaw = target_body_yaw_;
+    }
+    double last = -1.0;
+    for (const auto & p : traj.points) {
+      const double t = rclcpp::Duration(p.time_from_start).seconds();
+      if (t <= last) {
+        error = "time_from_start must be strictly increasing";
+        break;
+      }
+      last = t;
+      // the trajectory is in base_frame; the IK works on rest-relative head poses
+      samples.push_back({t, kinematics_.headFromBase(fromMsg(p.point.pose)), antennas, body_yaw});
+    }
+  }
+  if (!error.empty()) {
+    result->result = makeResult(Result::ROS_EBADMSG, error);
+    handle->abort(result);
+    return;
+  }
+  auto move = std::make_shared<const RecordedMove>(samples);
+  RCLCPP_INFO(
+    get_logger(), "execute_cartesian_trajectory: %zu points, %.1f s", samples.size(),
+    move->duration());
+  auto exec = startMotion(
+    std::make_shared<CartesianMotion>(move), "cartesian_trajectory", goal->meta.priority,
+    motion_initial_goto_);
+  auto feedback = std::make_shared<ExecuteCartesianTrajectory::Feedback>();
+  const uint8_t code = runMotion(exec, handle, feedback);
+  result->result = makeResult(code);
+  if (code == Result::ROS_ENOERR) {
+    handle->succeed(result);
+  } else if (code == Result::ROS_ECANCELED) {
+    handle->canceled(result);
+  } else {
+    handle->abort(result);
+  }
+}
+
+void DriverNode::executeJointTrajectory(
+  std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteJointTrajectory>> handle)
+{
+  const auto goal = handle->get_goal();
+  auto result = std::make_shared<ExecuteJointTrajectory::Result>();
+  std::shared_ptr<JointMotion> motion;
+  try {
+    if (goal->safe_mode) {
+      // the six platform joints are coupled: arbitrary combinations strain the mechanism
+      for (const auto & name : goal->trajectory.joint_names) {
+        if (name.rfind("stewart_", 0) == 0) {
+          throw std::invalid_argument(
+                  "joint '" + name + "' is only accepted with safe_mode=false (Stewart platform)");
+        }
+      }
+    }
+    std::vector<JointMotion::Point> points;
+    for (const auto & p : goal->trajectory.points) {
+      points.push_back({rclcpp::Duration(p.time_from_start).seconds(), p.positions});
+    }
+    motion = std::make_shared<JointMotion>(goal->trajectory.joint_names, points);
+  } catch (const std::exception & e) {
+    result->result = makeResult(Result::ROS_EBADMSG, e.what());
+    handle->abort(result);
+    return;
+  }
+  RCLCPP_INFO(
+    get_logger(), "execute_joint_trajectory: %zu joints, %.1f s",
+    goal->trajectory.joint_names.size(), motion->duration());
+  auto exec = startMotion(motion, "joint_trajectory", goal->meta.priority, 0.0);
+  auto feedback = std::make_shared<ExecuteJointTrajectory::Feedback>();
+  const uint8_t code = runMotion(exec, handle, feedback);
+  result->result = makeResult(code);
+  if (code == Result::ROS_ENOERR) {
+    handle->succeed(result);
+  } else if (code == Result::ROS_ECANCELED) {
+    handle->canceled(result);
+  } else {
+    handle->abort(result);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// look_at
+// ---------------------------------------------------------------------------
+void DriverNode::executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle)
+{
+  const auto goal = handle->get_goal();
+  auto result = std::make_shared<LookAt::Result>();
+  const std::string & policy = goal->policy;
+  const bool has_target = !goal->target.header.frame_id.empty();
+
+  if (policy == LookAt::Goal::RESET) {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      gaze_.reset();
+    }
+    gotoPose(kInitHeadPose, kInitAntennas, 1.0);
+    std::this_thread::sleep_for(1100ms);
+    result->result = makeResult(Result::ROS_ENOERR);
+    handle->succeed(result);
+    return;
+  }
+  if (policy == LookAt::Goal::GLANCE || policy.empty()) {
+    if (!has_target) {
+      result->result = makeResult(Result::ROS_EBADMSG, "look_at: target.header.frame_id is empty");
+      handle->abort(result);
+      return;
+    }
+    if (policy.empty()) {
+      // track until cancelled by a reset (or another target)
+      std::lock_guard<std::mutex> lock(mutex_);
+      gaze_ = Gaze{goal->target, false, {}, std::nullopt};
+      result->result = makeResult(Result::ROS_ENOERR);
+      handle->succeed(result);
+      return;
+    }
+    // glance: look at the target for glance_duration, then back to what we were doing
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      std::optional<geometry_msgs::msg::PointStamped> previous;
+      if (gaze_ && !gaze_->glancing) {
+        previous = gaze_->target;
+      }
+      gaze_ = Gaze{goal->target, true,
+        std::chrono::steady_clock::now() +
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::duration<double>(glance_duration_)),
+        previous};
+    }
+    const auto until = std::chrono::steady_clock::now() +
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::duration<double>(glance_duration_ + 1.0));
+    while (std::chrono::steady_clock::now() < until) {
+      std::this_thread::sleep_for(50ms);
+      if (handle->is_canceling()) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        gaze_.reset();
+        result->result = makeResult(Result::ROS_ECANCELED);
+        handle->canceled(result);
+        return;
+      }
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (!gaze_ || !gaze_->glancing) {
+        break;
+      }
+    }
+    result->result = makeResult(Result::ROS_ENOERR);
+    handle->succeed(result);
+    return;
+  }
+  result->result = makeResult(
+    Result::ROS_ENOTSUP, "look_at policy '" + policy + "' is not supported by the driver "
+    "(supported: reset, glance, and target tracking with an empty policy)");
+  handle->abort(result);
+}
+
+// ---------------------------------------------------------------------------
+// list_motions
+// ---------------------------------------------------------------------------
+void DriverNode::listMotions(
+  const std::shared_ptr<ListMotions::Request>/*request*/,
+  std::shared_ptr<ListMotions::Response> response)
+{
+  try {
+    response->motions = allMotionNames();
+    response->result = makeResult(Result::ROS_ENOERR);
+  } catch (const std::exception & e) {
+    response->result = makeResult(Result::ROS_EOTHER, e.what());
+  }
+}
+
+// ---------------------------------------------------------------------------
 void DriverNode::shutdown()
 {
-  move_cancelled_ = true;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (current_) {
+      current_->cancelled = true;
+      current_->done = true;
+    }
+    gaze_.reset();
+  }
   if (get_parameter("sleep_on_shutdown").as_bool()) {
     RCLCPP_INFO(get_logger(), "going to sleep");
     gotoPose(kSleepHeadPose, kSleepAntennas, 2.0);

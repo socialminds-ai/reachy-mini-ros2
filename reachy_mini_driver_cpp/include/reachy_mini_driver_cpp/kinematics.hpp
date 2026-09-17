@@ -48,6 +48,8 @@ public:
 
   /// The `head` frame in the base frame: the FK pose plus the rest height.
   Pose headInBase(const Pose & head_pose) const;
+  /// The inverse: a head pose expressed in base_link -> the rest-relative pose the IK takes.
+  Pose headFromBase(const Pose & pose_in_base) const;
   /// Pose of each of the 6 rods in the base frame: origin at the horn tip, x axis
   /// towards the anchor on the platform (rods are symmetric, roll is arbitrary).
   std::vector<Pose> rodsInBase(const Joints & joints, const Pose & head_pose) const;

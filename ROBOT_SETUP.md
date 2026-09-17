@@ -135,7 +135,8 @@ docker exec -it reachy-mini-ros ros2 launch reachy_mini driver.launch.py
 ```
 
 In another terminal (robot or laptop): `ros2 topic echo /joint_states`,
-`ros2 action send_goal /reachy_mini_driver/play_move reachy_mini_msgs/action/PlayMove "{move: cheerful1}"`.
+`ros2 action send_goal /skill/replay_motion motions_skills/action/ReplayMotion "{name: cheerful1}"`
+(the driver implements the ROS4HRI motion and `look_at` skills, see `README.md`).
 Stop with Ctrl-C: the driver puts the head in the sleep pose and releases the
 motors. Then `sudo systemctl start reachy-mini-daemon` gives the robot back to
 Pollen's stack.
@@ -154,7 +155,7 @@ journalctl -u reachy-mini-driver-docker -f
 
 What you lose without the daemon: sound, camera/WebRTC, the HTTP API on port
 8000 and the Pollen apps. What you keep: the whole ROS graph, `joint_states`,
-`/tf` with the robot model, the `PlayMove` action.
+`/tf` with the robot model, the ROS4HRI skills.
 
 ## 7. Updating
 

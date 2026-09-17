@@ -3,7 +3,7 @@
 <package format="3">
   <name>reachy_mini_driver_cpp</name>
   <version>0.3.0</version>
-  <description>Bare-metal hardware driver for the Reachy Mini (C++): owns the servo bus through reachy_mini_c, runs the 50 Hz control loop, publishes joint states and plays recorded moves. Replaces the Pollen daemon.</description>
+  <description>Bare-metal hardware driver for the Reachy Mini (C++): owns the servo bus through reachy_mini_c, runs the 50 Hz control loop, publishes joint states and TF, and implements the ROS4HRI skills replay_motion, list_motions, execute_cartesian_trajectory, execute_joint_trajectory and look_at. Replaces the Pollen daemon.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
 
@@ -18,6 +18,12 @@
   <depend>std_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_msgs</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>motions_skills</depend>
+  <depend>interaction_skills</depend>
+  <depend>std_skills</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>moveit_msgs</depend>
   <depend>eigen</depend>
   <depend>nlohmann-json-dev</depend>
   <exec_depend>ros2launch</exec_depend>

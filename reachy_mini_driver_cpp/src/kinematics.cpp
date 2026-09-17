@@ -84,6 +84,13 @@ Pose Kinematics::headInBase(const Pose & head_pose) const
   return p;
 }
 
+Pose Kinematics::headFromBase(const Pose & pose_in_base) const
+{
+  Pose p = pose_in_base;
+  p.translation().z() -= head_z_offset_;
+  return p;
+}
+
 std::vector<Pose> Kinematics::rodsInBase(const Joints & joints, const Pose & head_pose) const
 {
   const Pose t_base_head = headInBase(head_pose);

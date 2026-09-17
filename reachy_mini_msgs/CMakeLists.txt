@@ -5,9 +5,8 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "action/PlayMove.action"
   "msg/AntennasTarget.msg"
-  DEPENDENCIES action_msgs std_msgs
+  DEPENDENCIES std_msgs
 )
 
 if(BUILD_TESTING)

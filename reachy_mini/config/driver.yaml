@@ -4,6 +4,10 @@ reachy_mini_driver:
     serial_port: /dev/ttyAMA3          # servo bus; 'fake' = ideal simulated bus (no hardware)
     rate: 50.0                         # control loop frequency, Hz
     dataset: pollen-robotics/reachy-mini-emotions-library   # default move library
+    extra_datasets: ['']               # more libraries (HF datasets or directories) for the motion skills
+    skills_namespace: /skill           # ROS4HRI skills: <ns>/replay_motion, list_motions, look_at, ...
+    motion_initial_goto: 0.5           # s, glide to the first sample of a motion before playing it
+    glance_duration: 2.0               # s, how long look_at holds a GLANCE (C++ driver)
     wake_up_on_start: true             # go to the rest pose when the driver starts
     sleep_on_shutdown: true            # go to the sleep pose and release the motors on exit
     publish_tf: true                   # broadcast base_frame -> head and -> rod_1..6 on /tf

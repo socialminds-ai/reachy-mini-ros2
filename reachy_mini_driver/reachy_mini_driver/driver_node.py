@@ -31,6 +31,8 @@ import time
 from typing import List, Optional, Tuple
 
 from geometry_msgs.msg import PoseStamped, TransformStamped
+from motions_skills.action import ReplayMotion
+from motions_skills.srv import ListMotions
 import numpy as np
 import rclpy
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
@@ -40,11 +42,11 @@ from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
 from reachy_mini.kinematics.analytical_kinematics import AnalyticalKinematics
 from reachy_mini.utils.interpolation import linear_pose_interpolation
-from reachy_mini_msgs.action import PlayMove
 from reachy_mini_msgs.msg import AntennasTarget
 from scipy.spatial.transform import Rotation as R
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
+from std_skills.msg import Result
 from tf2_ros import TransformBroadcaster
 
 from .bus import FakeBus, MOTOR_NAMES, MotorBus, RealBus
@@ -140,15 +142,19 @@ class DriverNode(Node):
     ~/target_head_pose (PoseStamped), ~/target_antennas (reachy_mini_msgs/AntennasTarget),
     ~/target_body_yaw (std_msgs/Float64): subscribed.
 
-    Action
-    ------
-    ~/play_move (reachy_mini_msgs/PlayMove).
+    Skills (ROS4HRI, under the `skills_namespace` parameter, default /skill)
+    -----------------------------------------------------------------------
+    replay_motion (motions_skills/action/ReplayMotion): play a recorded move by name.
+    list_motions (motions_skills/srv/ListMotions): the names that replay_motion accepts.
+
+    The C++ driver implements the full skill set (trajectories, look_at); this
+    Python driver is a reference implementation limited to the two motion skills.
 
     """
 
-    def __init__(self, bus: Optional[MotorBus] = None) -> None:
-        """Open the bus, start the loop."""
-        super().__init__('reachy_mini_driver')
+    def __init__(self, bus: Optional[MotorBus] = None, **node_kwargs) -> None:
+        """Open the bus, start the loop (`node_kwargs` go to rclpy.Node)."""
+        super().__init__('reachy_mini_driver', **node_kwargs)
         self.declare_parameter('serial_port', '/dev/ttyAMA3')
         self.declare_parameter('rate', 50.0)
         self.declare_parameter('dataset', DEFAULT_DATASET)
@@ -156,6 +162,9 @@ class DriverNode(Node):
         self.declare_parameter('sleep_on_shutdown', True)
         self.declare_parameter('publish_tf', True)
         self.declare_parameter('base_frame', 'base_link')
+        self.declare_parameter('skills_namespace', '/skill')
+        self.declare_parameter('extra_datasets', [''])
+        self.declare_parameter('motion_initial_goto', 0.5)
 
         port = self.get_parameter('serial_port').value
         self.bus = bus if bus is not None else (FakeBus() if port == 'fake' else RealBus(port))
@@ -183,13 +192,18 @@ class DriverNode(Node):
         self.create_subscription(AntennasTarget, '~/target_antennas', self._on_target_antennas, 10)
         self.create_subscription(Float64, '~/target_body_yaw', self._on_target_body_yaw, 10)
 
+        self.extra_datasets = [d for d in self.get_parameter('extra_datasets').value if d]
+        ns = self.get_parameter('skills_namespace').value
         self._cb_group = ReentrantCallbackGroup()
+        self._move_priority = 0
         self._action = ActionServer(
-            self, PlayMove, '~/play_move',
-            execute_callback=self._execute_play_move,
-            goal_callback=lambda _: GoalResponse.ACCEPT,
+            self, ReplayMotion, ns + '/replay_motion',
+            execute_callback=self._execute_replay_motion,
+            goal_callback=self._accept_motion_goal,
             cancel_callback=lambda _: CancelResponse.ACCEPT,
             callback_group=self._cb_group)
+        self._list_service = self.create_service(
+            ListMotions, ns + '/list_motions', self._list_motions, callback_group=self._cb_group)
 
         self.bus.set_torque(True)
         if self.get_parameter('wake_up_on_start').value:
@@ -283,45 +297,106 @@ class DriverNode(Node):
             return None
         return [float(j) for j in joints] + [float(a) for a in self._target_antennas]
 
-    # ------------------------------------------------------------- play_move
-    def _execute_play_move(self, goal_handle):
-        goal = goal_handle.request
-        result = PlayMove.Result()
+    # --------------------------------------------------------------- skills
+    def _all_motion_names(self):
+        names = set(self.library.names())
+        for dataset in self.extra_datasets:
+            try:
+                names.update(self.library.names(dataset))
+            except Exception as e:  # noqa: BLE001 - a bad extra library must not break listing
+                self.get_logger().warning(f"cannot list dataset '{dataset}': {e}")
+        return sorted(names)
+
+    def _list_motions(self, request, response):
+        """ROS4HRI list_motions: the names replay_motion accepts."""
         try:
-            move = self.library.get(goal.move, goal.dataset or None)
-        except Exception as e:  # noqa: BLE001 - report loading errors to the caller
-            result.message = str(e)
+            response.motions = self._all_motion_names()
+            response.result.error_code = Result.ROS_ENOERR
+        except Exception as e:  # noqa: BLE001
+            response.result.error_code = Result.ROS_EOTHER
+            response.result.error_msg = str(e)
+        return response
+
+    def _accept_motion_goal(self, goal):
+        """Reject a goal whose priority is lower than the running motion's (std_skills/Meta)."""
+        with self._lock:
+            running = self._move is not None
+        if running and goal.meta.priority < self._move_priority:
+            self.get_logger().warning(
+                'replay_motion goal rejected: a higher-priority motion is running')
+            return GoalResponse.REJECT
+        return GoalResponse.ACCEPT
+
+    def _execute_replay_motion(self, goal_handle):
+        """ROS4HRI replay_motion: play a recorded move by name."""
+        goal = goal_handle.request
+        result = ReplayMotion.Result()
+        move = None
+        try:
+            if not goal.name:
+                raise KeyError('empty motion name')
+            try:
+                move = self.library.get(goal.name)
+            except KeyError:
+                for dataset in self.extra_datasets:
+                    try:
+                        move = self.library.get(goal.name, dataset)
+                        break
+                    except KeyError:
+                        pass
+            if move is None:
+                raise KeyError(f"unknown motion '{goal.name}'")
+        except Exception as e:  # noqa: BLE001 - the spec wants the list of motions back
+            result.result.error_code = Result.ROS_EBADMSG
+            result.result.error_msg = f'{e}; available: {", ".join(self._all_motion_names())}'
             goal_handle.abort()
             return result
 
-        self.get_logger().info(f"playing '{goal.move}' ({move.duration:.1f} s)")
+        self.get_logger().info(
+            f"playing '{goal.name}' ({move.duration:.1f} s) for {goal.meta.caller or 'unknown'}")
+        # preempt whatever is playing (the goal callback already filtered lower priorities)
+        with self._lock:
+            preempted = self._move is not None
+            self._move_cancelled = True
+            self._move_priority = goal.meta.priority
+        if preempted:
+            self._move_done.wait(timeout=1.0)
         # 1. reach the first pose of the move (so the move does not start with a jump)
         head0, ant0, _ = move.evaluate(0.0)
-        if goal.initial_goto_duration > 0:
-            self.goto(head0, list(ant0), goal.initial_goto_duration)
-            time.sleep(goal.initial_goto_duration)
+        initial_goto = self.get_parameter('motion_initial_goto').value
+        if initial_goto > 0:
+            self.goto(head0, list(ant0), initial_goto)
+            time.sleep(initial_goto)
         # 2. play, ticking feedback until the loop says it is over
         with self._lock:
             self._move_cancelled = False
             self._move_done.clear()
             self._move = (move, time.monotonic())
-        feedback = PlayMove.Feedback()
+        feedback = ReplayMotion.Feedback()
+        this_move = self._move
         while not self._move_done.wait(timeout=0.1):
             if goal_handle.is_cancel_requested:
                 with self._lock:
                     self._move_cancelled = True
                 self._move_done.wait(timeout=1.0)
                 goal_handle.canceled()
-                result.message = 'cancelled'
+                result.result.error_code = Result.ROS_ECANCELED
                 return result
             with self._lock:
+                if self._move is not this_move:      # replaced by a newer goal
+                    break
                 elapsed = time.monotonic() - self._move[1] if self._move else move.duration
-            feedback.elapsed = float(elapsed)
-            feedback.progress = float(min(1.0, elapsed / move.duration))
+            feedback.feedback.data_float = float(min(1.0, elapsed / move.duration))
+            feedback.feedback.data_str = goal.name
             goal_handle.publish_feedback(feedback)
+        with self._lock:
+            preempted_by_newer = self._move is not None and self._move is not this_move
+        if preempted_by_newer:
+            result.result.error_code = Result.ROS_EINTR
+            goal_handle.abort()
+            return result
         goal_handle.succeed()
-        result.completed = True
-        result.message = 'done'
+        result.result.error_code = Result.ROS_ENOERR
         return result
 
     def stop_move(self) -> None:

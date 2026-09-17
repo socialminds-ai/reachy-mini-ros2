@@ -11,21 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests of the driver on the fake bus: control loop, targets, play_move action."""
+"""Tests of the driver on the fake bus: control loop, targets, motion skills."""
 
 import os
 import threading
 import time
 
 from geometry_msgs.msg import PoseStamped
+from motions_skills.action import ReplayMotion
+from motions_skills.srv import ListMotions
 import pytest
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
 from reachy_mini_driver.bus import FakeBus
 from reachy_mini_driver.driver_node import DriverNode, INIT_ANTENNAS
-from reachy_mini_msgs.action import PlayMove
 from sensor_msgs.msg import JointState
+from std_skills.msg import Result
 from tf2_msgs.msg import TFMessage
 
 MOVES_DIR = os.path.join(os.path.dirname(__file__), 'moves')
@@ -33,9 +35,13 @@ MOVES_DIR = os.path.join(os.path.dirname(__file__), 'moves')
 
 @pytest.fixture
 def driver():
+    # a private domain: colcon runs the packages' tests in parallel, and the C++ driver test
+    # starts the same node name and skill servers
+    os.environ.setdefault('ROS_DOMAIN_ID', '71')
     rclpy.init()
     bus = FakeBus()
-    node = DriverNode(bus=bus)
+    node = DriverNode(bus=bus, parameter_overrides=[
+        rclpy.parameter.Parameter('dataset', value=MOVES_DIR)])
     executor = MultiThreadedExecutor(num_threads=3)
     executor.add_node(node)
     thread = threading.Thread(target=executor.spin, daemon=True)
@@ -96,13 +102,14 @@ def test_target_head_pose_moves_the_platform(driver):
     assert wait_for(lambda: max(abs(a - b) for a, b in zip(bus.positions[1:7], before)) > 0.05)
 
 
-def test_play_move_action(driver):
+def test_replay_motion_skill(driver):
     node, bus = driver
     time.sleep(2.2)
     client_node = rclpy.create_node('client')
-    client = ActionClient(client_node, PlayMove, '/reachy_mini_driver/play_move')
+    client = ActionClient(client_node, ReplayMotion, '/skill/replay_motion')
     assert client.wait_for_server(timeout_sec=5.0)
-    goal = PlayMove.Goal(dataset=MOVES_DIR, move='nod', initial_goto_duration=0.2)
+    goal = ReplayMotion.Goal(name='nod')
+    goal.meta.caller = 'test'
     feedbacks = []
     future = client.send_goal_async(goal, feedback_callback=feedbacks.append)
     rclpy.spin_until_future_complete(client_node, future, timeout_sec=5.0)
@@ -113,22 +120,35 @@ def test_play_move_action(driver):
     assert wait_for(lambda: abs(bus.positions[7] + 0.3 * 1.0) < 0.1, timeout=2.0)
     rclpy.spin_until_future_complete(client_node, result_future, timeout_sec=5.0)
     result = result_future.result().result
-    assert result.completed and result.message == 'done'
-    assert feedbacks and feedbacks[-1].feedback.progress > 0.5
+    assert result.result.error_code == Result.ROS_ENOERR
+    assert feedbacks and feedbacks[-1].feedback.feedback.data_float > 0.5
     client_node.destroy_node()
 
 
-def test_play_move_unknown_is_aborted(driver):
+def test_replay_motion_unknown_lists_the_motions(driver):
     node, _ = driver
     client_node = rclpy.create_node('client2')
-    client = ActionClient(client_node, PlayMove, '/reachy_mini_driver/play_move')
+    client = ActionClient(client_node, ReplayMotion, '/skill/replay_motion')
     assert client.wait_for_server(timeout_sec=5.0)
-    future = client.send_goal_async(PlayMove.Goal(dataset=MOVES_DIR, move='does_not_exist'))
+    future = client.send_goal_async(ReplayMotion.Goal(name='does_not_exist'))
     rclpy.spin_until_future_complete(client_node, future, timeout_sec=5.0)
     result_future = future.result().get_result_async()
     rclpy.spin_until_future_complete(client_node, result_future, timeout_sec=5.0)
-    assert not result_future.result().result.completed
-    assert 'not found' in result_future.result().result.message
+    result = result_future.result().result.result
+    assert result.error_code == Result.ROS_EBADMSG
+    assert 'nod' in result.error_msg
+    client_node.destroy_node()
+
+
+def test_list_motions_skill(driver):
+    node, _ = driver
+    client_node = rclpy.create_node('client3')
+    client = client_node.create_client(ListMotions, '/skill/list_motions')
+    assert client.wait_for_service(timeout_sec=5.0)
+    future = client.call_async(ListMotions.Request())
+    rclpy.spin_until_future_complete(client_node, future, timeout_sec=5.0)
+    assert future.result().motions == ['nod']
+    assert future.result().result.error_code == Result.ROS_ENOERR
     client_node.destroy_node()
 
 

@@ -14,7 +14,8 @@ find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
 # hardware-independent logic (bus interface, kinematics wrapper, recorded moves)
-ament_auto_add_library(${PROJECT_NAME}_lib SHARED src/bus.cpp src/kinematics.cpp src/moves.cpp)
+ament_auto_add_library(${PROJECT_NAME}_lib SHARED
+  src/bus.cpp src/kinematics.cpp src/moves.cpp src/trajectories.cpp)
 target_link_libraries(${PROJECT_NAME}_lib Eigen3::Eigen nlohmann_json::nlohmann_json)
 
 # the node

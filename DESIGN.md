@@ -18,7 +18,7 @@ node that opens `/dev/ttyAMA3` itself: one process fewer on the Raspberry Pi, RO
 only middleware between a behaviour node and the servos, and a target published on a
 topic reaches the motors on the next 20 ms tick with nothing in between but the node's
 own timer. The robot's whole behaviour is visible through ROS tools (`/joint_states`,
-`/tf`, the `PlayMove` action).
+`/tf`, the ROS4HRI skills).
 
 What is lost by stopping the daemon: its sound output (the emotions library ships one
 sound per move; only the daemon plays it), the camera and its WebRTC stream, the HTTP API,
@@ -258,27 +258,58 @@ solver is cheap and this removes a flag. Constructors do the daemon's cold start
 once, `fk(..., 20 iterations)`, and initialise the target pose, antennas and body yaw
 from what was read, so the first goals written are where the head already is.
 
-### PlayMove as an action, and the initial goto
+### Motions as ROS4HRI skills, and the initial goto
 
-`PlayMove.action` (`reachy_mini_msgs`) carries `dataset`, `move` and
-`initial_goto_duration` (default 0.5 s); the result is `completed` + `message`; feedback
-is `progress` (0..1) and `elapsed`. An action fits because a move takes seconds, can
-fail (unknown move, missing dataset), reports progress and can be cancelled. The goal
-callback accepts everything; the execute callback runs in its own thread (a
-`ReentrantCallbackGroup` on a 3-thread `MultiThreadedExecutor` in Python; a detached
-`std::thread` from the accepted callback in C++). That thread never touches the bus:
+The daemon's `play_move()` became the standard `replay_motion` skill
+(`motions_skills/action/ReplayMotion`, from https://ros4hri.github.io/skills.json) rather
+than a private action, so that a behaviour node written for any ROS4HRI robot drives
+this one: the goal is `name` + a `std_skills/Meta` (`caller`, `priority`), the result a
+`std_skills/Result` error code, the feedback `data_float` = progress 0..1. An action fits
+because a move takes seconds, can fail (unknown move, missing dataset), reports progress
+and can be cancelled. The sibling skills share the machinery: `list_motions` (a service)
+returns what `replay_motion` accepts; `execute_cartesian_trajectory` plays a
+`moveit_msgs/CartesianTrajectory` of head poses; `execute_joint_trajectory` plays a
+`trajectory_msgs/JointTrajectory` straight on the motors, bypassing IK (with `safe_mode`
+refusing the six platform joints, which are meaningless one at a time). All four are one
+`Motion` interface in C++ (`trajectories.hpp`: `duration()` and `evaluate(t)` returning
+optional head pose, antennas, body yaw or raw joint goals), so the loop does not know
+which skill it is playing.
 
-1. `MoveLibrary.get(move, dataset)`; a loading error aborts the goal with the exception
-   text as `message`;
-2. if `initial_goto_duration > 0`, `goto(first_pose, first_antennas, duration)` and a
-   sleep of that length, so the loop glides to the move's first sample;
-3. install `(move, t0)` under the lock, then only wait: every 100 ms publish feedback
-   and check for a cancel request; on cancel set the flag, wait for the loop to
-   acknowledge, return `canceled` with `message = "cancelled"`; when the loop signals the
-   end, return `succeed` with `completed = true`.
+The goal callback rejects a motion whose `meta.priority` is lower than the running one;
+otherwise the execute callback runs in its own thread (a `ReentrantCallbackGroup` on a
+3-thread `MultiThreadedExecutor` in Python; a detached `std::thread` from the accepted
+callback in C++). That thread never touches the bus:
 
-A cancelled move leaves the robot where it is. The same `Goto` mechanism (`Goto` in
-`driver_node.py`, `DriverNode::Goto` in C++) serves the wake-up and sleep sequences.
+1. look the motion up (`MoveLibrary.get`, in `dataset` then `extra_datasets`); a
+   loading error aborts the goal with `ROS_EBADMSG` and the available names in
+   `error_msg`, as the skill spec asks;
+2. take the single motion slot: the motion that was playing is flagged *preempted* and
+   its thread returns `ROS_EINTR`;
+3. if `motion_initial_goto > 0` and the motion has a head pose,
+   `goto(first_pose, first_antennas, duration)` and a sleep of that length, so the loop
+   glides to the first sample (the slot is reserved, but not *started*, during that
+   glide: the loop keeps running the goto);
+4. start the clock, then only wait: every 50-100 ms publish feedback and check for a
+   cancel request; on cancel set the flag, wait for the loop to acknowledge, return
+   `ROS_ECANCELED`; when the loop signals the end, return `ROS_ENOERR`.
+
+A cancelled move leaves the robot where it is. A joint-space motion ends by resetting
+the Cartesian targets to where the joints actually are, so the next tick's IK does not
+snap the head back. The same `Goto` mechanism (`Goto` in `driver_node.py`,
+`DriverNode::Goto` in C++) serves the wake-up and sleep sequences.
+
+### look_at
+
+`interaction_skills/action/LookAt` is the other skill the hardware can honour without
+perception: the C++ driver keeps a *gaze* state next to the motion slot. With an empty
+`policy` the goal succeeds at once and the head tracks `target` (a `PointStamped` in any
+TF frame; the loop transforms it into `base_frame` every tick through a `tf2` buffer, so
+a moving frame is followed) until another goal, a motion or a cancel replaces it.
+`GLANCE` does the same for `glance_duration` seconds and then restores whatever target
+was in force before (or the rest pose). `RESET` is a goto to the rest pose. The head
+orientation is yaw = atan2(y, x), pitch = -atan2(z, distance), both clamped to what the
+platform reaches (about 35 degrees), with the head origin kept at rest height; the
+policies that need a perception stack (`RANDOM`, `SOCIAL`, `AUTO`) answer `ROS_ENOTSUP`.
 
 ### Targets as topics
 
@@ -405,9 +436,13 @@ environment; `colcon test` runs them all in a `ros:lyrical` container.
   wake-up goto reaching `INIT_ANTENNAS` with body yaw 0; nine `/joint_states` positions
   starting with `body_yaw`; a `~/target_head_pose` 2 cm up moving the Stewart angles by
   more than 0.05 rad; `/tf` carrying exactly `head` and `rod_1..6` under `base_link`, head
-  at rest height; the `PlayMove` action on `test/moves/nod.json` (a 1 s nod, antennas to
+  at rest height; `replay_motion` on `test/moves/nod.json` (a 1 s nod, antennas to
   -0.3/+0.3 rad at 0.5 s) accepted, wiggling the antennas, sending feedback and
-  succeeding; an unknown move aborted with `not found` in the message. `FakeBus` makes
+  returning `ROS_ENOERR`; an unknown name answered with `ROS_EBADMSG` and the available
+  names; `list_motions` returning `nod`. The C++ tests add the priority rules (a lower
+  priority goal rejected, an equal one preempting with `ROS_EINTR` for the loser), a
+  Cartesian and a joint trajectory moving the fake servos (and `safe_mode` refusing the
+  platform joints), and `look_at` tracking, glancing back and resetting. `FakeBus` makes
   writes observable and instant, so tests assert on `bus.positions`, not on timing.
 * **Moves and kinematics without ROS.** `test_moves.cpp` checks `RecordedMove` loading,
   interpolation and clamping, HuggingFace cache resolution against a fake `$HF_HOME`
