@@ -22,6 +22,8 @@ robot-image:
   stage: image
   image: docker:27
   services: [docker:27-dind]
+  tags:
+    - arm64
   needs: []
   variables:
     DOCKER_BUILDKIT: "1"
