@@ -27,16 +27,34 @@ ssh pollen@reachy-mini.local
 date -u
 ```
 
-If the date is wrong (it drifts after a long power-off), `apt` will refuse the
-repositories with "Not live until ...". Set it from the laptop's clock, then let
-NTP take over:
+The robot has no battery-backed clock, so the date drifts after a long power-off
+and `apt` then refuses the repositories with "Not live until ...". The clock
+must also agree with the laptop's to within 500 ms, otherwise zenoh rejects the
+robot's messages (step 5).
+
+The stock NTP servers (the Debian pool) are blocked on some networks, including
+the lab's, and `timesyncd` then never synchronizes. Point it at a server that
+answers, here `hora.roa.es` (Spain's official time):
+
+```sh
+# on the robot
+sudo mkdir -p /etc/systemd/timesyncd.conf.d
+printf '[Time]\nNTP=hora.roa.es\nFallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org\n' \
+  | sudo tee /etc/systemd/timesyncd.conf.d/lab.conf
+sudo systemctl restart systemd-timesyncd
+timedatectl | grep synchronized          # must say "yes" after a few seconds
+timedatectl timesync-status | grep -E 'Server|Offset'
+```
+
+Do the same on the laptop: both clocks must be right, not only the robot's
+(a container on the laptop uses the laptop's clock).
+
+If no NTP server is reachable at all, copy the laptop's clock as a stopgap
+(accurate to about a second only):
 
 ```sh
 # on the laptop
 ssh -t pollen@reachy-mini.local "sudo date -u -s '$(date -u)'"
-# on the robot
-sudo systemctl restart systemd-timesyncd
-timedatectl | grep synchronized
 ```
 
 ## 2. Install Docker
@@ -182,6 +200,10 @@ Docker and the image can stay; they do not interfere with the daemon.
 
 `apt` says "Not live until ..." or signature errors
 : The clock. Step 1.
+
+zenoh logs "incoming timestamp ... exceeding delta 500ms is rejected"
+: The robot and laptop clocks differ by more than 500 ms. Check
+  `timedatectl | grep synchronized` on both and set up NTP as in step 1.
 
 `docker pull` says "unauthorized"
 : The registry needs a login (step 3); or build the image on the robot.

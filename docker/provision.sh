@@ -4,7 +4,9 @@
 # Details and the manual steps: ../ROBOT_SETUP.md
 #
 # What it does (idempotent):
-#   1. checks the clock (apt refuses signatures "from the future")
+#   1. points timesyncd at a reachable NTP server and waits for sync
+#      (apt refuses signatures "from the future"; zenoh rejects timestamps
+#      more than 500 ms off the laptop's clock)
 #   2. installs Docker and lets `pollen` use it
 #   3. pulls the reachy-mini-ros image (or builds it locally, ~1 h)
 #   4. installs and starts the systemd unit that keeps the container running
@@ -13,14 +15,24 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 IMAGE=${IMAGE:-reachy-mini-ros:lyrical}
 REGISTRY_IMAGE=${REGISTRY_IMAGE:-gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical}
+# The Debian pool is blocked on some networks (the lab's included)
+NTP_SERVER=${NTP_SERVER:-hora.roa.es}
 
 [ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
 
-echo "== 1. clock"
-if ! timedatectl show -p NTPSynchronized --value | grep -q yes; then
-  echo "clock not synchronised ($(date -u)); trying NTP once"
-  systemctl restart systemd-timesyncd 2>/dev/null || true
-  sleep 3
+echo "== 1. clock (NTP: $NTP_SERVER)"
+mkdir -p /etc/systemd/timesyncd.conf.d
+printf '[Time]\nNTP=%s\nFallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org\n' "$NTP_SERVER" \
+  > /etc/systemd/timesyncd.conf.d/lab.conf
+systemctl restart systemd-timesyncd
+for _ in $(seq 15); do
+  timedatectl show -p NTPSynchronized --value | grep -q yes && break
+  sleep 1
+done
+if timedatectl show -p NTPSynchronized --value | grep -q yes; then
+  echo "clock synchronised"
+else
+  echo "WARNING: clock not synchronised; set it by hand (see ROBOT_SETUP.md, step 1)"
 fi
 date -u
 
