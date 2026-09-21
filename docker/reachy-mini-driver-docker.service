@@ -18,7 +18,8 @@ Conflicts=reachy-mini-daemon.service
 [Service]
 Restart=on-failure
 RestartSec=3
-ExecStart=/usr/bin/docker exec reachy-mini-ros ros2 launch reachy_mini driver.launch.py
+# `bash -c` so that BASH_ENV sources ROS (docker exec bypasses the entrypoint).
+ExecStart=/usr/bin/docker exec reachy-mini-ros bash -c "exec ros2 launch reachy_mini driver.launch.py"
 # docker exec does not forward signals: stop the launch (and its driver) with
 # SIGINT from inside, so the robot goes to sleep and releases the motors.
 ExecStop=/usr/bin/docker exec reachy-mini-ros pkill -INT -f "ros2 launch reachy_mini"

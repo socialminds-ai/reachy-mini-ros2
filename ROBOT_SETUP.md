@@ -120,9 +120,13 @@ pulls the image if you are logged in to the registry, and builds it otherwise.
 Check:
 
 ```sh
-docker exec reachy-mini-ros ros2 pkg list | grep reachy_mini
+docker exec reachy-mini-ros bash -c "ros2 pkg list" | grep reachy_mini
 docker exec -it reachy-mini-ros bash          # a shell with ROS sourced
 ```
+
+`ros2` must always be run through `bash`: `docker exec` bypasses the image's
+entrypoint, and ROS is sourced by bash itself (`BASH_ENV` and `.bashrc`), so a
+bare `docker exec reachy-mini-ros ros2 ...` fails with "executable file not found".
 
 At this point the Pollen daemon still owns the robot and the container only
 observes: this is fine for nodes that talk to the daemon's HTTP API on port 8000.
@@ -149,7 +153,7 @@ The driver and the daemon cannot share the servo bus. To try the driver by hand:
 
 ```sh
 sudo systemctl stop reachy-mini-daemon
-docker exec -it reachy-mini-ros ros2 launch reachy_mini driver.launch.py
+docker exec -it reachy-mini-ros bash -c "ros2 launch reachy_mini driver.launch.py"
 ```
 
 In another terminal (robot or laptop): `ros2 topic echo /joint_states`,
@@ -216,6 +220,8 @@ The laptop sees no nodes
 : Router not connected: check `ZENOH_CONFIG_OVERRIDE` and that TCP 7447 is
   reachable (`nc -vz <robot IP> 7447`); both sides must use `rmw_zenoh_cpp`.
 
-`ros2` not found in `docker exec`
-: Use `docker exec reachy-mini-ros bash -c "..."` or a plain `ros2 ...` command:
-  the image sources ROS for every bash, including non-interactive ones.
+`docker exec reachy-mini-ros ros2 ...` says "executable file not found in $PATH"
+: `docker exec` runs the command without a shell and skips the entrypoint, so
+  ROS is not sourced. Go through bash, which the image sets up to source ROS
+  even when non-interactive: `docker exec reachy-mini-ros bash -c "ros2 ..."`,
+  or open a shell with `docker exec -it reachy-mini-ros bash`.

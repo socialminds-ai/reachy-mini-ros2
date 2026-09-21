@@ -1,5 +1,5 @@
 # Keeps the ROS 2 container running on the robot. Nodes are started inside it
-# with `docker exec reachy-mini-ros ros2 ...` or by their own units
+# with `docker exec reachy-mini-ros bash -c "ros2 ..."` or by their own units
 # (see reachy-mini-driver-docker.service).
 #
 # --network host : ROS/zenoh reachable on the robot's IP (router on port 7447);
