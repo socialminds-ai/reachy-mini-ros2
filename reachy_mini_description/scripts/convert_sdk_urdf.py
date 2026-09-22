@@ -38,6 +38,12 @@ and robot_state_publisher would publish a static identity transform.
 Rod frames: origin at the horn tip, x axis towards the platform anchor, mesh
 centred at x = rod_length / 2.
 
+Links and meshes keep their SDK names, but only the visible parts are kept
+(HIDDEN_MESHES) and the head is recoloured (COLORS). RViz (at least up to
+rviz_default_plugins 15.2) paints every visual of a link with the material of
+its first visual, so each link keeps one colour and the visuals of the other
+colours move to fixed children `<link>_color<n>` (identity transform).
+
 Usage:  convert_sdk_urdf.py <sdk urdf dir> <package dir>
 """
 
@@ -51,6 +57,23 @@ from scipy.spatial.transform import Rotation as R
 
 ROD_LENGTH = 0.085
 PACKAGE = 'reachy_mini_description'
+
+# Visuals dropped by mesh-file prefix: parts hidden inside the shells (the servos'
+# cases, horns, screws, connectors and LED caps, the antenna holders, the camera
+# board and its bracket) or only seen through the eye lenses, which are made
+# opaque below. Checked by rendering the model from many viewpoints: they are
+# never or barely visible (the body yaw servo shows a little from right above).
+HIDDEN_MESHES = ('dc15_a01_', 'phs_1_7x20_5_dc10', 'bts2_m2_6x8', 'b3b_eh',
+                 'antenna_holder_', 'antenna_interface_3dprint', 'arducam',
+                 'pp01102_arducam_carter', 'm12_fisheye_lens')
+# Colour overrides by mesh-file prefix: white head, black eyes
+COLORS = {
+    'neck_reference_3dprint': '1 1 1 1',
+    'glasses_dolder_3dprint': '0.05 0.05 0.05 1',
+    'lens_cap_d': '0.05 0.05 0.05 1',
+    'big_lens_d40': '0.05 0.05 0.05 1',
+    'small_lens_d30': '0.05 0.05 0.05 1',
+}
 
 
 def origin_to_matrix(o):
@@ -123,7 +146,37 @@ def main(sdk_urdf_dir, package_dir):
         ET.SubElement(j, 'child', link=f'rod_{i}')
         ET.SubElement(j, 'axis', xyz='0 0 1')
 
-    # 5. meshes: only the referenced ones, with package:// paths
+    # 5. drop the collision geometry (not needed for visualisation, doubles the size)
+    #    and the hidden visuals, recolour the head
+    for link in root.findall('link'):
+        for c in link.findall('collision'):
+            link.remove(c)
+        for v in link.findall('visual'):
+            mesh = v.find('geometry/mesh')
+            name = os.path.basename(mesh.get('filename')) if mesh is not None else ''
+            if name.startswith(HIDDEN_MESHES):
+                link.remove(v)
+                continue
+            for prefix, rgba in COLORS.items():
+                if name.startswith(prefix):
+                    v.find('material/color').set('rgba', rgba)
+
+    # 6. one colour per link: RViz uses the first visual's material for the whole link
+    for link in root.findall('link'):
+        by_color = {}
+        for v in link.findall('visual'):
+            by_color.setdefault(v.find('material/color').get('rgba'), []).append(v)
+        for n, visuals in enumerate(list(by_color.values())[1:], start=1):
+            name = f'{link.get("name")}_color{n}'
+            child = ET.SubElement(root, 'link', name=name)
+            for v in visuals:
+                link.remove(v)
+                child.append(v)
+            j = ET.SubElement(root, 'joint', name=f'{name}_joint', type='fixed')
+            ET.SubElement(j, 'parent', link=link.get('name'))
+            ET.SubElement(j, 'child', link=name)
+
+    # 7. meshes: only the referenced ones, with package:// paths
     os.makedirs(os.path.join(package_dir, 'meshes'), exist_ok=True)
     copied = set()
     for m in root.iter('mesh'):
@@ -133,10 +186,9 @@ def main(sdk_urdf_dir, package_dir):
             shutil.copy(os.path.join(sdk_urdf_dir, 'assets', name),
                         os.path.join(package_dir, 'meshes', name))
             copied.add(name)
-    # collision geometry is not needed for visualisation and doubles the size
-    for link in root.findall('link'):
-        for c in link.findall('collision'):
-            link.remove(c)
+    for name in os.listdir(os.path.join(package_dir, 'meshes')):
+        if name.endswith('.stl') and name not in copied:
+            os.remove(os.path.join(package_dir, 'meshes', name))
 
     ET.indent(root, space='  ')
     out = os.path.join(package_dir, 'urdf', 'reachy_mini.urdf')

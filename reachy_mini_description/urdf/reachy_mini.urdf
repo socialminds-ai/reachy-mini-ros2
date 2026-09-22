@@ -18,15 +18,6 @@
       </material>
     </visual>
     <visual>
-      <origin xyz="-2.45997e-07 6.93889e-18 0.0413" rpy="-1.5708 6.01506e-30 -1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="-2.45997e-07 6.93889e-18 0.2298" rpy="6.12323e-17 -2.91879e-28 1.5708" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/body_turning_3dprint.stl" />
@@ -52,741 +43,12 @@
       </material>
     </visual>
     <visual>
-      <origin xyz="4.80615e-16 -1.03807e-15 0.195" rpy="5.72119e-18 -3.9443e-31 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/stewart_tricap_3dprint.stl" />
-      </geometry>
-      <material name="stewart_tricap_3dprint_material">
-        <color rgba="0.301961 0.301961 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="8.17568e-16 -0.005 0.0535833" rpy="1.5708 -3.9443e-31 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/5w_speaker.stl" />
-      </geometry>
-      <material name="5w_speaker_material">
-        <color rgba="0.196078 0.196078 0.196078 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="3.79972e-17 -3.70588e-18 -0.0115" rpy="1.5708 -5.55112e-17 1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bearing_85x110x13.stl" />
-      </geometry>
-      <material name="bearing_85x110x13_material">
-        <color rgba="0.768627 0.886275 0.952941 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="6.43558e-16 9.98888e-16 0.195" rpy="5.72119e-18 -0 -3.14159" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/body_top_3dprint.stl" />
       </geometry>
       <material name="body_top_3dprint_material">
         <color rgba="1 1 1 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-3.07628e-26 -5.29396e-23 0.195" rpy="5.72119e-18 -0 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/stewart_main_plate_3dprint.stl" />
-      </geometry>
-      <material name="stewart_main_plate_3dprint_material">
-        <color rgba="0.301961 0.301961 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.0501606 0.0418333" rpy="-3.14159 -1.63452e-15 3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_2_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0384404 0.0337406 0.0418333" rpy="-3.14159 -1.68259e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_3_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 -5.29396e-23 0.0065" rpy="-1.5708 -0 5.65819e-31" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_4_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0384404 0.0337406 0.0418333" rpy="-3.14159 1.68259e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_5_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.01 -0.0501606 0.0418333" rpy="-3.14159 1.63452e-15 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_6_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0484404 0.01642 0.0418333" rpy="-3.14159 1.58644e-15 1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_7_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0484404 0.01642 0.0418333" rpy="-3.14159 -1.58644e-15 -1.0472" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
       </material>
     </visual>
   </link>
@@ -797,30 +59,12 @@
       <inertia ixx="8.57063e-08" ixy="1.81822e-13" ixz="-1.93125e-07" iyy="1.28019e-06" iyz="1.09002e-14" izz="1.26546e-06" />
     </inertial>
     <visual>
-      <origin xyz="3.46945e-18 0 -0.0065" rpy="1.5708 -2.09044e-30 -1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_2_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 6.12323e-17" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
       </geometry>
       <material name="mp01062_stewart_arm_3_material">
         <color rgba="0.301961 0.301961 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0.0825 -1.6545e-10 0.007" rpy="4.32628e-14 -5.84082e-17 6.12323e-17" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball.stl" />
-      </geometry>
-      <material name="stewart_link_ball_material">
-        <color rgba="0.439216 0.47451 0.501961 1" />
       </material>
     </visual>
   </link>
@@ -846,24 +90,6 @@
         <color rgba="0.439216 0.47451 0.501961 1" />
       </material>
     </visual>
-    <visual>
-      <origin xyz="-1.73472e-18 0 -0.0065" rpy="1.5708 -3.99138e-30 -1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_3_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 3.6476e-15" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
-      </geometry>
-      <material name="mp01062_stewart_arm_3_2_material">
-        <color rgba="0.301961 0.301961 0.301961 1" />
-      </material>
-    </visual>
   </link>
   <joint name="stewart_2" type="revolute">
     <origin xyz="-0.0428112 0.01317 0.0418333" rpy="-1.5708 1.47282e-13 -2.0944" />
@@ -879,30 +105,12 @@
       <inertia ixx="8.57063e-08" ixy="1.79436e-13" ixz="-1.93125e-07" iyy="1.28019e-06" iyz="1.03818e-14" izz="1.26546e-06" />
     </inertial>
     <visual>
-      <origin xyz="-1.73472e-18 1.38778e-17 -0.0065" rpy="1.5708 1.89883e-30 -1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_4_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="0.04 -0.0425 0.007" rpy="-2.8701e-15 -2.95696e-14 -1.5708" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball.stl" />
       </geometry>
       <material name="stewart_link_ball_3_material">
         <color rgba="0.439216 0.47451 0.501961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 6.12323e-17" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
-      </geometry>
-      <material name="mp01062_stewart_arm_3_3_material">
-        <color rgba="0.301961 0.301961 0.301961 1" />
       </material>
     </visual>
   </link>
@@ -928,24 +136,6 @@
         <color rgba="0.439216 0.47451 0.501961 1" />
       </material>
     </visual>
-    <visual>
-      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 6.12323e-17" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
-      </geometry>
-      <material name="mp01062_stewart_arm_3_4_material">
-        <color rgba="0.301961 0.301961 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-1.73472e-18 -1.38778e-17 -0.0065" rpy="1.5708 1.27364e-31 -1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_5_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
   </link>
   <joint name="stewart_4" type="revolute">
     <origin xyz="0.01 -0.0436606 0.0418333" rpy="-1.5708 -7.49452e-14 3.47181e-14" />
@@ -969,24 +159,6 @@
         <color rgba="0.301961 0.301961 0.301961 1" />
       </material>
     </visual>
-    <visual>
-      <origin xyz="-0.0025 8.32667e-17 0.007" rpy="1.14239e-16 1.38095e-14 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball.stl" />
-      </geometry>
-      <material name="stewart_link_ball_5_material">
-        <color rgba="0.439216 0.47451 0.501961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="0 0 -0.0065" rpy="1.5708 -1.18329e-29 -1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_6_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
   </link>
   <joint name="stewart_5" type="revolute">
     <origin xyz="0.0428112 0.01317 0.0418333" rpy="1.5708 -1.79054e-13 -1.0472" />
@@ -1002,30 +174,12 @@
       <inertia ixx="8.57063e-08" ixy="1.79436e-13" ixz="-1.93125e-07" iyy="1.28019e-06" iyz="1.03818e-14" izz="1.26546e-06" />
     </inertial>
     <visual>
-      <origin xyz="3.46945e-18 0 -0.0065" rpy="1.5708 2.54036e-31 -1.5708" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_7_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="0.0825 8.32667e-17 0.007" rpy="2.5071e-14 -2.28835e-17 6.12323e-17" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball.stl" />
       </geometry>
       <material name="stewart_link_ball_6_material">
         <color rgba="0.439216 0.47451 0.501961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 6.12323e-17" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
-      </geometry>
-      <material name="mp01062_stewart_arm_3_6_material">
-        <color rgba="0.301961 0.301961 0.301961 1" />
       </material>
     </visual>
   </link>
@@ -1036,75 +190,12 @@
       <inertia ixx="0.000634651" ixy="3.65691e-05" ixz="-2.18087e-05" iyy="0.000587786" iyz="9.29467e-05" izz="0.000460283" />
     </inertial>
     <visual>
-      <origin xyz="-0.0387195 -0.0329451 -0.0240431" rpy="1.43435 -0.544115 2.16946" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/m12_fisheye_lens_1_8mm.stl" />
-      </geometry>
-      <material name="m12_fisheye_lens_1_8mm_material">
-        <color rgba="0.498039 0.498039 0.498039 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="0.0175286 0.0420772 0.0551172" rpy="-2.11906 0.116645 -2.61388" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball__2.stl" />
       </geometry>
       <material name="stewart_link_ball_7_material">
         <color rgba="0.439216 0.47451 0.501961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0262968 -0.0511554 -0.0373805" rpy="1.43435 -0.544115 2.16946" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/big_lens_d40.stl" />
-      </geometry>
-      <material name="big_lens_d40_material">
-        <color rgba="0.439216 0.47451 0.501961 0.301961" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/neck_reference_3dprint.stl" />
-      </geometry>
-      <material name="neck_reference_3dprint_material">
-        <color rgba="0.901961 0.901961 0.901961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/head_back_3dprint.stl" />
-      </geometry>
-      <material name="head_back_3dprint_material">
-        <color rgba="1 1 1 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.045905 -0.0448628 -0.0036254" rpy="-1.79194 1.01151 1.9102" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/arducam.stl" />
-      </geometry>
-      <material name="arducam_material">
-        <color rgba="0.498039 0.498039 0.498039 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0311515 -0.0518836 0.00154345" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/pp01102_arducam_carter.stl" />
-      </geometry>
-      <material name="pp01102_arducam_carter_material">
-        <color rgba="0.301961 0.301961 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0536682 -0.0188765 0.0257182" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/antenna_holder_l_3dprint.stl" />
-      </geometry>
-      <material name="antenna_holder_l_3dprint_material">
-        <color rgba="0.498039 0.498039 0.498039 1" />
       </material>
     </visual>
     <visual>
@@ -1117,48 +208,12 @@
       </material>
     </visual>
     <visual>
-      <origin xyz="-0.0536562 -0.018894 0.0257054" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/lens_cap_d30_3dprint.stl" />
-      </geometry>
-      <material name="lens_cap_d30_3dprint_material">
-        <color rgba="0.0980392 0.0980392 0.0980392 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0536391 -0.0189191 0.025687" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/lens_cap_d40_3dprint.stl" />
-      </geometry>
-      <material name="lens_cap_d40_3dprint_material">
-        <color rgba="0.0980392 0.0980392 0.0980392 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0536682 -0.0188765 0.0257182" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/antenna_holder_r_3dprint.stl" />
-      </geometry>
-      <material name="antenna_holder_r_3dprint_material">
-        <color rgba="0.498039 0.498039 0.498039 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="0.0150556 0.0490816 0.0432504" rpy="-2.11906 0.116645 -2.61388" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball__2.stl" />
       </geometry>
       <material name="stewart_link_ball_9_material">
         <color rgba="0.439216 0.47451 0.501961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0244054 -0.0696173 0.0280123" rpy="1.43435 -0.544115 2.16946" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/small_lens_d30.stl" />
-      </geometry>
-      <material name="small_lens_d30_material">
-        <color rgba="0.439216 0.47451 0.501961 0.301961" />
       </material>
     </visual>
     <visual>
@@ -1180,246 +235,12 @@
       </material>
     </visual>
     <visual>
-      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/glasses_dolder_3dprint.stl" />
-      </geometry>
-      <material name="glasses_dolder_3dprint_material">
-        <color rgba="0.196078 0.196078 0.196078 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/head_front_3dprint.stl" />
-      </geometry>
-      <material name="head_front_3dprint_material">
-        <color rgba="1 1 1 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/head_mic_3dprint.stl" />
-      </geometry>
-      <material name="head_mic_3dprint_material">
-        <color rgba="1 1 1 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0272066 -0.0655112 0.0310197" rpy="1.43435 -0.544115 2.16946" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/m12_fisheye_lens_1_8mm.stl" />
-      </geometry>
-      <material name="m12_fisheye_lens_1_8mm_2_material">
-        <color rgba="0.498039 0.498039 0.498039 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="-0.0285824 0.0487174 0.00138374" rpy="0.11668 0.0244934 -1.04022" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball__2.stl" />
       </geometry>
       <material name="stewart_link_ball_12_material">
         <color rgba="0.439216 0.47451 0.501961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_8_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0737021 -0.0344474 0.0784637" rpy="1.36569 0.508471 2.10225" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_2.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_2_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_b_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_b_dummy_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_m_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_m_dummy_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_led_cap2_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_led_cap2_dummy_9_material">
-        <color rgba="0.87451 0.447059 0.317647 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/bts2_m2_6x8.stl" />
-      </geometry>
-      <material name="bts2_m2_6x8_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_case_f_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_case_f_dummy_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh_1.stl" />
-      </geometry>
-      <material name="b3b_eh_1_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/b3b_eh.stl" />
-      </geometry>
-      <material name="b3b_eh_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_3.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_3_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10_1.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_1_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="-0.0909991 0.0145437 -0.0045371" rpy="0.0684236 1.39152 0.701924" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/phs_1_7x20_5_dc10.stl" />
-      </geometry>
-      <material name="phs_1_7x20_5_dc10_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
       </material>
     </visual>
   </link>
@@ -1474,33 +295,6 @@
         <color rgba="0 0 0 1" />
       </material>
     </visual>
-    <visual>
-      <origin xyz="3.46945e-18 5.55112e-17 0.0065" rpy="-1.5708 -9.90471e-15 1.20979e-13" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_8_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="5.20417e-18 5.55112e-17 1.38778e-17" rpy="-1.5708 -3.37306e-16 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/antenna_interface_3dprint.stl" />
-      </geometry>
-      <material name="antenna_interface_3dprint_material">
-        <color rgba="0.713725 0.760784 0.8 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="5.72459e-17 1.38778e-16 -0.0028" rpy="-1.5708 1.15929e-14 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/antenna_body_3dprint.stl" />
-      </geometry>
-      <material name="antenna_body_3dprint_material">
-        <color rgba="1 1 1 1" />
-      </material>
-    </visual>
   </link>
   <joint name="right_antenna" type="revolute">
     <origin xyz="-0.0948524 0.0197779 -0.00445785" rpy="1.63922 1.39152 0.701924" />
@@ -1516,39 +310,12 @@
       <inertia ixx="2.69314e-05" ixy="2.22219e-09" ixz="3.62599e-10" iyy="2.98203e-07" iyz="-6.63107e-07" izz="2.68876e-05" />
     </inertial>
     <visual>
-      <origin xyz="3.46945e-18 -2.77556e-17 0.0065" rpy="-1.5708 -2.80299e-14 1.15234e-13" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/dc15_a01_horn_dummy.stl" />
-      </geometry>
-      <material name="dc15_a01_horn_dummy_9_material">
-        <color rgba="0.262745 0.282353 0.301961 1" />
-      </material>
-    </visual>
-    <visual>
       <origin xyz="5.89806e-17 2.77556e-17 -0.0028" rpy="-1.5708 1.85671e-14 -3.14159" />
       <geometry>
         <mesh filename="package://reachy_mini_description/meshes/antenna_body_3dprint.stl" />
       </geometry>
       <material name="antenna_body_3dprint_2_material">
         <color rgba="1 1 1 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="5.20417e-18 0 0" rpy="-1.5708 2.85907e-14 -3.14159" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/antenna_interface_3dprint.stl" />
-      </geometry>
-      <material name="antenna_interface_3dprint_2_material">
-        <color rgba="0.713725 0.760784 0.8 1" />
-      </material>
-    </visual>
-    <visual>
-      <origin xyz="6.79838e-15 -0.0588 -0.0103" rpy="5.3124e-16 -1.84481e-14 1.16503e-13" />
-      <geometry>
-        <mesh filename="package://reachy_mini_description/meshes/antenna.stl" />
-      </geometry>
-      <material name="antenna_2_material">
-        <color rgba="0 0 0 1" />
       </material>
     </visual>
   </link>
@@ -1682,5 +449,272 @@
     <parent link="base_link" />
     <child link="rod_6" />
     <axis xyz="0 0 1" />
+  </joint>
+  <link name="body_down_3dprint_color1">
+    <visual>
+      <origin xyz="4.80615e-16 -1.03807e-15 0.195" rpy="5.72119e-18 -3.9443e-31 3.14159" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/stewart_tricap_3dprint.stl" />
+      </geometry>
+      <material name="stewart_tricap_3dprint_material">
+        <color rgba="0.301961 0.301961 0.301961 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-3.07628e-26 -5.29396e-23 0.195" rpy="5.72119e-18 -0 -3.14159" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/stewart_main_plate_3dprint.stl" />
+      </geometry>
+      <material name="stewart_main_plate_3dprint_material">
+        <color rgba="0.301961 0.301961 0.301961 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="body_down_3dprint_color1_joint" type="fixed">
+    <parent link="body_down_3dprint" />
+    <child link="body_down_3dprint_color1" />
+  </joint>
+  <link name="body_down_3dprint_color2">
+    <visual>
+      <origin xyz="8.17568e-16 -0.005 0.0535833" rpy="1.5708 -3.9443e-31 3.14159" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/5w_speaker.stl" />
+      </geometry>
+      <material name="5w_speaker_material">
+        <color rgba="0.196078 0.196078 0.196078 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="body_down_3dprint_color2_joint" type="fixed">
+    <parent link="body_down_3dprint" />
+    <child link="body_down_3dprint_color2" />
+  </joint>
+  <link name="body_down_3dprint_color3">
+    <visual>
+      <origin xyz="3.79972e-17 -3.70588e-18 -0.0115" rpy="1.5708 -5.55112e-17 1.5708" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/bearing_85x110x13.stl" />
+      </geometry>
+      <material name="bearing_85x110x13_material">
+        <color rgba="0.768627 0.886275 0.952941 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="body_down_3dprint_color3_joint" type="fixed">
+    <parent link="body_down_3dprint" />
+    <child link="body_down_3dprint_color3" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_color1">
+    <visual>
+      <origin xyz="0.0825 -1.6545e-10 0.007" rpy="4.32628e-14 -5.84082e-17 6.12323e-17" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball.stl" />
+      </geometry>
+      <material name="stewart_link_ball_material">
+        <color rgba="0.439216 0.47451 0.501961 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy" />
+    <child link="dc15_a01_horn_dummy_color1" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_2_color1">
+    <visual>
+      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 3.6476e-15" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
+      </geometry>
+      <material name="mp01062_stewart_arm_3_2_material">
+        <color rgba="0.301961 0.301961 0.301961 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_2_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy_2" />
+    <child link="dc15_a01_horn_dummy_2_color1" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_3_color1">
+    <visual>
+      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 6.12323e-17" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
+      </geometry>
+      <material name="mp01062_stewart_arm_3_3_material">
+        <color rgba="0.301961 0.301961 0.301961 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_3_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy_3" />
+    <child link="dc15_a01_horn_dummy_3_color1" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_4_color1">
+    <visual>
+      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 6.12323e-17" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
+      </geometry>
+      <material name="mp01062_stewart_arm_3_4_material">
+        <color rgba="0.301961 0.301961 0.301961 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_4_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy_4" />
+    <child link="dc15_a01_horn_dummy_4_color1" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_5_color1">
+    <visual>
+      <origin xyz="-0.0025 8.32667e-17 0.007" rpy="1.14239e-16 1.38095e-14 -3.14159" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/stewart_link_ball.stl" />
+      </geometry>
+      <material name="stewart_link_ball_5_material">
+        <color rgba="0.439216 0.47451 0.501961 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_5_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy_5" />
+    <child link="dc15_a01_horn_dummy_5_color1" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_6_color1">
+    <visual>
+      <origin xyz="-0.01 -0.153167 0.0436606" rpy="1.5708 -1.0472 6.12323e-17" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/mp01062_stewart_arm_3.stl" />
+      </geometry>
+      <material name="mp01062_stewart_arm_3_6_material">
+        <color rgba="0.301961 0.301961 0.301961 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_6_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy_6" />
+    <child link="dc15_a01_horn_dummy_6_color1" />
+  </joint>
+  <link name="xl_330_color1">
+    <visual>
+      <origin xyz="-0.0262968 -0.0511554 -0.0373805" rpy="1.43435 -0.544115 2.16946" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/big_lens_d40.stl" />
+      </geometry>
+      <material name="big_lens_d40_material">
+        <color rgba="0.05 0.05 0.05 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.0536562 -0.018894 0.0257054" rpy="1.79194 -1.01151 -1.23139" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/lens_cap_d30_3dprint.stl" />
+      </geometry>
+      <material name="lens_cap_d30_3dprint_material">
+        <color rgba="0.05 0.05 0.05 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.0536391 -0.0189191 0.025687" rpy="1.79194 -1.01151 -1.23139" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/lens_cap_d40_3dprint.stl" />
+      </geometry>
+      <material name="lens_cap_d40_3dprint_material">
+        <color rgba="0.05 0.05 0.05 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.0244054 -0.0696173 0.0280123" rpy="1.43435 -0.544115 2.16946" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/small_lens_d30.stl" />
+      </geometry>
+      <material name="small_lens_d30_material">
+        <color rgba="0.05 0.05 0.05 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/glasses_dolder_3dprint.stl" />
+      </geometry>
+      <material name="glasses_dolder_3dprint_material">
+        <color rgba="0.05 0.05 0.05 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="xl_330_color1_joint" type="fixed">
+    <parent link="xl_330" />
+    <child link="xl_330_color1" />
+  </joint>
+  <link name="xl_330_color2">
+    <visual>
+      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/neck_reference_3dprint.stl" />
+      </geometry>
+      <material name="neck_reference_3dprint_material">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/head_back_3dprint.stl" />
+      </geometry>
+      <material name="head_back_3dprint_material">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/head_front_3dprint.stl" />
+      </geometry>
+      <material name="head_front_3dprint_material">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.0535717 -0.0190178 0.0256147" rpy="1.79194 -1.01151 -1.23139" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/head_mic_3dprint.stl" />
+      </geometry>
+      <material name="head_mic_3dprint_material">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="xl_330_color2_joint" type="fixed">
+    <parent link="xl_330" />
+    <child link="xl_330_color2" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_7_color1">
+    <visual>
+      <origin xyz="5.72459e-17 1.38778e-16 -0.0028" rpy="-1.5708 1.15929e-14 -3.14159" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/antenna_body_3dprint.stl" />
+      </geometry>
+      <material name="antenna_body_3dprint_material">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_7_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy_7" />
+    <child link="dc15_a01_horn_dummy_7_color1" />
+  </joint>
+  <link name="dc15_a01_horn_dummy_8_color1">
+    <visual>
+      <origin xyz="6.79838e-15 -0.0588 -0.0103" rpy="5.3124e-16 -1.84481e-14 1.16503e-13" />
+      <geometry>
+        <mesh filename="package://reachy_mini_description/meshes/antenna.stl" />
+      </geometry>
+      <material name="antenna_2_material">
+        <color rgba="0 0 0 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="dc15_a01_horn_dummy_8_color1_joint" type="fixed">
+    <parent link="dc15_a01_horn_dummy_8" />
+    <child link="dc15_a01_horn_dummy_8_color1" />
   </joint>
 </robot>

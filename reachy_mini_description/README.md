@@ -8,6 +8,9 @@ URDF and meshes of the Reachy Mini, generated from the Pollen Robotics SDK model
 python3 scripts/convert_sdk_urdf.py <site-packages>/reachy_mini/descriptions/reachy_mini/urdf .
 ```
 
+Links and meshes keep their SDK names; parts hidden inside the shells are
+dropped (see the script).
+
 The Stewart platform is a closed kinematic chain, which `robot_state_publisher`
 cannot solve (the passive joint angles are never measured). The model is
 therefore restructured: `head` and the six rods `rod_1..6` hang under `base_link`
