@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_camera_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-09-23)
+------------------
 
 * Add reachy_mini_camera_driver: libcamera + hardware H.264 camera node
   A GStreamer pipeline off the ROS thread: libcamerasrc (the ISP scales and

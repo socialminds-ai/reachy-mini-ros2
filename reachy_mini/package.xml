@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>reachy_mini</name>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
   <description>Reachy Mini bare-metal ROS 2 support: pulls in the drivers (Python and C++), and ships the launch file, the parameter file and the systemd unit to run the driver on the robot.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>

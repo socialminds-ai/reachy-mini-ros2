@@ -2,8 +2,8 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-09-23)
+------------------
 * reachy_mini: camera:=true, RViz config with the model, TF and the camera
   - depends on reachy_mini_camera_driver; driver.launch.py camera:=true
   includes its launch file (namespace /camera)

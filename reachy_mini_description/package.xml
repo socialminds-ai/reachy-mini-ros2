@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>reachy_mini_description</name>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
   <description>URDF and meshes of the Reachy Mini robot (from the Pollen Robotics SDK model), restructured for robot_state_publisher: the head and the six Stewart rods are floating links whose transforms the driver broadcasts from its kinematics.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>

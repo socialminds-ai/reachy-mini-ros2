@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-09-23)
+------------------
 * reachy_mini_description: drop hidden meshes, white head and black eyes
   - convert_sdk_urdf.py drops the visuals hidden inside the shells (servo
   cases, horns, screws, connectors, antenna holders, camera board, fisheye
