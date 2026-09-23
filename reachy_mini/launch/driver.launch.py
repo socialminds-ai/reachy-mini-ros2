@@ -17,7 +17,8 @@ Launch the Reachy Mini bare-metal driver with the parameters of config/driver.ya
     ros2 launch reachy_mini driver.launch.py                    # C++ driver, real servos
     ros2 launch reachy_mini driver.launch.py lang:=python       # Python driver
     ros2 launch reachy_mini driver.launch.py serial_port:=fake  # no hardware
-    ros2 launch reachy_mini driver.launch.py rviz:=true         # + RViz
+    ros2 launch reachy_mini driver.launch.py rviz:=true         # + RViz (model, TF, camera)
+    ros2 launch reachy_mini driver.launch.py camera:=true       # + the camera (namespace /camera)
 
 Also starts robot_state_publisher with the reachy_mini_description model
 (description:=false to skip it): joint_states from the driver give the body yaw,
@@ -49,11 +50,26 @@ def generate_launch_description():
         DeclareLaunchArgument('description', default_value='true',
                               description='publish the robot model (robot_state_publisher)'),
         DeclareLaunchArgument('rviz', default_value='false', description='open RViz'),
+        DeclareLaunchArgument('camera', default_value='false',
+                              description='start the camera driver (reachy_mini_camera_driver)'),
         IncludeLaunchDescription(
             os.path.join(get_package_share_directory('reachy_mini_description'),
                          'launch', 'description.launch.py'),
-            launch_arguments={'rviz': LaunchConfiguration('rviz')}.items(),
+            launch_arguments={'rviz': 'false'}.items(),
             condition=IfCondition(LaunchConfiguration('description')),
+        ),
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            arguments=['-d', os.path.join(get_package_share_directory('reachy_mini'),
+                                          'rviz', 'reachy_mini.rviz')],
+            condition=IfCondition(LaunchConfiguration('rviz')),
+        ),
+        IncludeLaunchDescription(
+            os.path.join(get_package_share_directory('reachy_mini_camera_driver'),
+                         'launch', 'camera.launch.py'),
+            condition=IfCondition(LaunchConfiguration('camera')),
         ),
         Node(
             package=PythonExpression(["'reachy_mini_driver' if '", lang,

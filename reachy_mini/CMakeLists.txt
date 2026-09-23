@@ -9,4 +9,4 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_auto_package(INSTALL_TO_SHARE launch config systemd)
+ament_auto_package(INSTALL_TO_SHARE launch config rviz systemd)
