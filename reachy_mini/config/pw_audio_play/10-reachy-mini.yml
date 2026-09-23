@@ -1,0 +1,8 @@
+# pw_audio_play on the Reachy Mini, merged by launch_pal over pw_audio_play's
+# 00-defaults.yml (override it in ~/.pal/config/).
+# The PipeWire sink that docker/pipewire/reachy-mini-audio.conf creates over
+# the XVF3800 card; what plays there is also the card's echo-cancellation
+# reference.
+/pw_audio_play:
+  ros__parameters:
+    target: "reachy_mini_speaker"

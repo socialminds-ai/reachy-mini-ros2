@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Launch the Reachy Mini bare-metal driver with the parameters of config/driver.yaml.
+Launch the whole Reachy Mini: the servo driver (parameters of config/driver.yaml),
+the robot model, the camera and the audio (microphones and speaker).
 
-    ros2 launch reachy_mini driver.launch.py                    # C++ driver, real servos
+    ros2 launch reachy_mini driver.launch.py                    # everything, C++ driver
     ros2 launch reachy_mini driver.launch.py lang:=python       # Python driver
-    ros2 launch reachy_mini driver.launch.py serial_port:=fake  # no hardware
+    ros2 launch reachy_mini driver.launch.py serial_port:=fake  # no servos
+    ros2 launch reachy_mini driver.launch.py camera:=false      # without the camera
+    ros2 launch reachy_mini driver.launch.py audio:=false       # without microphones and speaker
     ros2 launch reachy_mini driver.launch.py rviz:=true         # + RViz (model, TF, camera)
-    ros2 launch reachy_mini driver.launch.py camera:=true       # + the camera (namespace /camera)
+
+The camera is reachy_mini_camera_driver (namespace /camera); the audio is
+mic_frontend (/audio/head/raw) and pw_audio_play (plays /audio/out), both
+through the robot's PipeWire and configured by config/mic_frontend/ and
+config/pw_audio_play/, which launch_pal merges over their defaults.
 
 Also starts robot_state_publisher with the reachy_mini_description model
 (description:=false to skip it): joint_states from the driver give the body yaw,
@@ -50,8 +57,11 @@ def generate_launch_description():
         DeclareLaunchArgument('description', default_value='true',
                               description='publish the robot model (robot_state_publisher)'),
         DeclareLaunchArgument('rviz', default_value='false', description='open RViz'),
-        DeclareLaunchArgument('camera', default_value='false',
+        DeclareLaunchArgument('camera', default_value='true',
                               description='start the camera driver (reachy_mini_camera_driver)'),
+        DeclareLaunchArgument('audio', default_value='true',
+                              description='start the microphones (mic_frontend) and the '
+                                          'speaker (pw_audio_play)'),
         IncludeLaunchDescription(
             os.path.join(get_package_share_directory('reachy_mini_description'),
                          'launch', 'description.launch.py'),
@@ -70,6 +80,16 @@ def generate_launch_description():
             os.path.join(get_package_share_directory('reachy_mini_camera_driver'),
                          'launch', 'camera.launch.py'),
             condition=IfCondition(LaunchConfiguration('camera')),
+        ),
+        IncludeLaunchDescription(
+            os.path.join(get_package_share_directory('mic_frontend'),
+                         'launch', 'mic_frontend.launch.py'),
+            condition=IfCondition(LaunchConfiguration('audio')),
+        ),
+        IncludeLaunchDescription(
+            os.path.join(get_package_share_directory('pw_audio_play'),
+                         'launch', 'pw_audio_play.launch.py'),
+            condition=IfCondition(LaunchConfiguration('audio')),
         ),
         Node(
             package=PythonExpression(["'reachy_mini_driver' if '", lang,

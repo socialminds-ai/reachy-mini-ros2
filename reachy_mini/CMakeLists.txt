@@ -9,4 +9,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+# Reachy Mini settings of the audio nodes: launch_pal merges them over the
+# nodes' own defaults when their launch files run
+ament_index_register_resource(pal_configuration.mic_frontend
+  CONTENT config/mic_frontend/10-reachy-mini.yml)
+ament_index_register_resource(pal_configuration.pw_audio_play
+  CONTENT config/pw_audio_play/10-reachy-mini.yml)
+
 ament_auto_package(INSTALL_TO_SHARE launch config rviz systemd)

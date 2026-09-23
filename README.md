@@ -11,7 +11,7 @@ servo bus directly, without the Pollen daemon. Targets ROS 2 Lyrical.
 | `reachy_mini_driver_cpp` | The same driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json). |
 | `reachy_mini_camera_driver` | The camera (IMX708 wide, CSI) through libcamera: H.264 from the Pi's hardware encoder for `ffmpeg_image_transport` and Foxglove, raw frames on demand. See "Camera and audio" below. |
 | `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured so that `robot_state_publisher` publishes what it can and the driver broadcasts the rest. |
-| `reachy_mini` | Metapackage: depends on all of the above and ships the launch file, the parameter file and the systemd unit. Install this one. |
+| `reachy_mini` | Metapackage: depends on all of the above and on the audio nodes (`mic_frontend`, `pw_audio_play`), and ships the launch file that starts them all, the parameter files, the RViz configuration and the systemd unit. Install this one. |
 | `docker/` | The ROS 2 container image for the robot and its systemd units (not a ROS package); see `ROBOT_SETUP.md`. |
 
 ## The driver node
@@ -117,7 +117,7 @@ source install/setup.bash
 ```sh
 # without hardware: an ideal simulated bus
 ros2 run reachy_mini_driver driver_node --ros-args -p serial_port:=fake
-# on the robot (Pollen daemon stopped, see below)
+# on the robot (Pollen daemon stopped, see below): servos, model, camera, audio
 ros2 launch reachy_mini driver.launch.py                    # C++ driver (default)
 ros2 launch reachy_mini driver.launch.py lang:=python       # Python driver
 
@@ -128,9 +128,12 @@ ros2 action send_goal /skill/look_at interaction_skills/action/LookAt \
     "{policy: glance, target: {header: {frame_id: base_link}, point: {x: 1.0, y: 0.5, z: 0.3}}}"
 ```
 
-The launch file takes `lang` (`cpp`, the default, or `python`), `serial_port` and `params_file`;
-the default parameter file is `reachy_mini/config/driver.yaml` (installed under
-`share/reachy_mini/config/`).
+`driver.launch.py` starts the whole robot: the servo driver, `robot_state_publisher`
+with the robot model, the camera and the audio (see "Camera and audio"). It takes
+`lang` (`cpp`, the default, or `python`), `serial_port` and `params_file` for the
+driver (the default parameter file is `reachy_mini/config/driver.yaml`, installed
+under `share/reachy_mini/config/`), and `camera`, `audio`, `description` and
+`rviz` to turn the rest on or off (all on except `rviz`).
 
 ## On the robot: stop the Pollen daemon first
 
@@ -186,9 +189,8 @@ The Pollen daemon owns the camera and the audio card while it runs. Without it
 
 ### Camera: `reachy_mini_camera_driver`
 
-Node `camera`, executable `camera_node`, started by
-`ros2 launch reachy_mini_camera_driver camera.launch.py` (namespace `/camera`) or
-by `ros2 launch reachy_mini driver.launch.py camera:=true`. A GStreamer pipeline
+Node `camera`, executable `camera_node`, started by `driver.launch.py`, or on its
+own by `ros2 launch reachy_mini_camera_driver camera.launch.py` (namespace `/camera`). A GStreamer pipeline
 does all the work off the ROS thread: libcamera (the ISP scales and converts),
 a tee, the Raspberry Pi's hardware H.264 encoder on one branch, raw frames on
 the other. Only what has subscribers costs anything: each branch is shut by a
@@ -232,27 +234,25 @@ To watch it from a laptop, with the robot model and TF:
 ### Audio: `mic_frontend` and `pw_audio_play`
 
 Audio goes through PipeWire, with two nodes that live in their own
-repositories: `mic_frontend` (microphones to `/audio/<name>/raw`) and
-`pw_audio_play` (`audio_common_msgs` audio to the speaker). On the
-robot, `docker/pipewire/` creates two PipeWire nodes over the audio card,
+repositories, both started by `driver.launch.py`:
+
+| node | | |
+|---|---|---|
+| `mic_frontend` | publishes | `/audio/head/raw` (`audio_common_msgs/AudioData`, 16 kHz mono S16LE, 10 ms chunks), `/audio/head/info`, `/audio/head/voice_detected` (`std_msgs/Bool`) |
+| `pw_audio_play` | plays | `/audio/out` (`audio_common_msgs/AudioData`, in the format given on `/audio/out/info`); `/pw_audio_play/stop`, `/pw_audio_play/is_playing` |
+
+On the robot, `docker/pipewire/` creates two PipeWire nodes over the audio card,
 `reachy_mini_mic` and `reachy_mini_speaker`, through the same ALSA sharing
 devices as the daemon, so they work whether the daemon runs or not.
 
 The card is an XMOS XVF3800: 16 kHz stereo only, and both capture channels
 carry the same processed stream (4-mic beamforming, noise suppression, echo
 cancellation against whatever the card plays). mic_frontend therefore needs
-neither `aec` nor, usually, `rnnoise`. A configuration for it, in
-`~/.pal/config/`:
-
-```yaml
-/mic_frontend:
-  ros__parameters:
-    ros_channel_names: ["head"]
-    channel_sources: ["reachy_mini_mic"]
-    channel_indices: [0]
-    channel_filters: ["highpass,vad"]
-    channel_reference_sources: [""]
-```
+neither `aec` nor, usually, `rnnoise`: it runs `highpass,vad` on one channel.
+These settings are in `reachy_mini/config/mic_frontend/` and
+`reachy_mini/config/pw_audio_play/`; the `reachy_mini` package registers them
+with launch_pal, which merges them over the nodes' own defaults whenever their
+launch files run. Override them with a file in `~/.pal/config/`.
 
 ## Design
 

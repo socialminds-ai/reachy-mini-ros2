@@ -256,14 +256,18 @@ camera monitor would hold the camera).
 **The camera** has a single owner, and the daemon opens it at startup: stop
 the daemon (step 6) before starting the camera driver.
 
+`ros2 launch reachy_mini driver.launch.py` (step 6, and the driver's systemd
+unit) starts the camera and the audio nodes with the servo driver; `camera:=false`
+or `audio:=false` leave them out. To run them on their own, next to the daemon
+for the audio:
+
 ```sh
 docker exec -it reachy-mini-ros bash -c "ros2 launch reachy_mini_camera_driver camera.launch.py"
 docker exec -it reachy-mini-ros bash -c "ros2 launch mic_frontend mic_frontend.launch.py"
 docker exec -it reachy-mini-ros bash -c "ros2 launch pw_audio_play pw_audio_play.launch.py"
 ```
 
-`README.md` ("Camera and audio") lists their topics and parameters, and the
-mic_frontend configuration for this card. `rpicam-hello --list-cameras` on the
+`README.md` ("Camera and audio") lists their topics and parameters. `rpicam-hello --list-cameras` on the
 robot (daemon stopped) says whether the kernel sees the camera.
 
 ## 8. Updating

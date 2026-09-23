@@ -1,0 +1,14 @@
+# mic_frontend on the Reachy Mini, merged by launch_pal over mic_frontend's
+# 00-defaults.yml (override it in ~/.pal/config/).
+#
+# One channel: the PipeWire source that docker/pipewire/reachy-mini-audio.conf
+# creates over the XVF3800 card. Its two channels carry the same processed
+# stream (4-mic beamforming, noise suppression, and echo cancellation against
+# what the card plays), so neither aec nor rnnoise is needed.
+/mic_frontend:
+  ros__parameters:
+    ros_channel_names: ["head"]              # -> /audio/head/raw, /audio/head/voice_detected
+    channel_sources: ["reachy_mini_mic"]
+    channel_indices: [0]
+    channel_filters: ["highpass,vad"]
+    channel_reference_sources: [""]
