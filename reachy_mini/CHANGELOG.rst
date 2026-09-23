@@ -2,8 +2,8 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.6.0 (2026-09-23)
+------------------
 * reachy_mini: driver.launch.py starts the whole robot (servos, camera, audio)
   - driver.launch.py also starts the microphones (mic_frontend) and the
   speaker (pw_audio_play) through their own launch files; camera and audio

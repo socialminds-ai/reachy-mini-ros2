@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>reachy_mini_driver</name>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
   <description>Bare-metal hardware driver for the Reachy Mini (Python): owns the servo bus, runs the 50 Hz control loop, publishes joint states and TF, and implements the ROS4HRI replay_motion and list_motions skills. Reference implementation; the C++ driver has the full skill set.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
