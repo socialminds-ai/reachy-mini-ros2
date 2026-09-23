@@ -9,6 +9,7 @@ servo bus directly, without the Pollen daemon. Targets ROS 2 Lyrical.
 | `reachy_mini_msgs` | Interfaces: `msg/AntennasTarget` (the skills use the standard ROS4HRI packages `motions_skills`, `interaction_skills`, `std_skills`). |
 | `reachy_mini_driver` | The driver node in Python (uses Pollen's Python wheels for motors and kinematics). |
 | `reachy_mini_driver_cpp` | The same driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json). |
+| `reachy_mini_camera_driver` | The camera (IMX708 wide, CSI) through libcamera: H.264 from the Pi's hardware encoder for `ffmpeg_image_transport` and Foxglove, raw frames on demand. See "Camera and audio" below. |
 | `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured so that `robot_state_publisher` publishes what it can and the driver broadcasts the rest. |
 | `reachy_mini` | Metapackage: depends on all of the above and ships the launch file, the parameter file and the systemd unit. Install this one. |
 | `docker/` | The ROS 2 container image for the robot and its systemd units (not a ROS package); see `ROBOT_SETUP.md`. |
@@ -145,7 +146,8 @@ sudo systemctl start reachy-mini-daemon      # give the robot back to Pollen's s
 ```
 
 Stopping the daemon also stops what it provides: its HTTP API on port 8000,
-sound, camera and the Pollen apps. The driver puts the robot to sleep and
+WebRTC and the Pollen apps (camera and sound are available in ROS instead, see
+"Camera and audio"). The driver puts the robot to sleep and
 releases the motors when it exits (`sleep_on_shutdown`, default true), so the
 daemon can take over again cleanly.
 
@@ -175,6 +177,82 @@ if ROS runs in a container on the robot, to wrap the command with
 
 To go back to the Pollen stack: `sudo systemctl disable --now reachy-mini-driver
 && sudo systemctl enable --now reachy-mini-daemon`.
+
+## Camera and audio
+
+The Pollen daemon owns the camera and the audio card while it runs. Without it
+(or next to it, for the audio), ROS gets them as follows; `ROBOT_SETUP.md`
+(step 7) prepares the robot.
+
+### Camera: `reachy_mini_camera_driver`
+
+Node `camera`, executable `camera_node`, started by
+`ros2 launch reachy_mini_camera_driver camera.launch.py` (namespace `/camera`) or
+by `ros2 launch reachy_mini driver.launch.py camera:=true`. A GStreamer pipeline
+does all the work off the ROS thread: libcamera (the ISP scales and converts),
+a tee, the Raspberry Pi's hardware H.264 encoder on one branch, raw frames on
+the other. Only what has subscribers costs anything: each branch is shut by a
+valve while nobody listens, and with `lazy` (the default) the camera itself
+stops 5 s after the last subscriber leaves.
+
+| | |
+|---|---|
+| publishes | `image_raw/ffmpeg` (`ffmpeg_image_transport_msgs/FFMPEGPacket`, H.264): subscribe with the `ffmpeg` image transport to get `sensor_msgs/Image`s, e.g. `ros2 run image_transport republish --ros-args -p in_transport:=ffmpeg -p out_transport:=raw -r in/ffmpeg:=/camera/image_raw/ffmpeg -r out:=/camera/image`; `image_raw/h264` (`foxglove_msgs/CompressedVideo`) for Foxglove; `image_raw` (`sensor_msgs/Image`, `yuv422_yuy2`, uncompressed: meant for nodes on the robot); `camera_info` |
+| stream parameters (dynamic; a change restarts the camera, about a second) | `width`, `height` (1280x720; the sensor is 16:9 and the hardware encoder stops at 1920x1080), `framerate` (30), `bitrate` (2 Mbit/s: the compression level), `keyframe_interval` (60 frames), `h264_profile` (`high`, `main` or `baseline`) |
+| image parameters (dynamic, applied live) | `autofocus_mode` (`continuous`, `auto`, `manual`), `lens_position` (dioptres, for `manual`), `exposure_value` (EV) |
+| other parameters | `lazy` (true), `frame_id` (`camera_optical`, the URDF's optical frame), `camera_info_url` (a `camera_calibration` result; none is shipped, the daemon's calibration being for another camera), `source` (`libcamera`, `v4l2:<device>` or `test`) and `encoder` (`v4l2h264enc`, or `x264enc` / `openh264enc` to develop on a PC) |
+
+Timestamps are the capture time (sensor timestamp from libcamera, in system
+time). A new subscriber to the H.264 topics triggers a keyframe, so it does not
+wait for the next one; SPS/PPS are repeated before every keyframe.
+
+Each `ros2 param set` of a stream parameter restarts the camera. To change
+several at once with a single restart, load them together:
+
+```sh
+cat > /tmp/1080p.yaml <<EOF
+/camera/camera:
+  ros__parameters: {width: 1920, height: 1080, bitrate: 4000000}
+EOF
+ros2 param load /camera/camera /tmp/1080p.yaml
+```
+
+Cost on the CM4 (one core = 100 %): 8 % at 720p30, 10 % at 1080p30. The
+encoder reads libcamera's buffers in place, and most of that is libcamera's
+own control loop (exposure, white balance, focus). A subscriber to the raw
+`image_raw` adds about 30 % (copy and serialisation of the raw frames).
+
+Without a robot: `ros2 run reachy_mini_camera_driver camera_node --ros-args -p source:=test -p encoder:=x264enc`.
+
+To watch it from a laptop, with the robot model and TF:
+`rviz2 -d $(ros2 pkg prefix reachy_mini)/share/reachy_mini/rviz/reachy_mini.rviz`
+(the config `driver.launch.py rviz:=true` opens). The laptop needs
+`ros-lyrical-ffmpeg-image-transport` for RViz to decode the H.264.
+
+### Audio: `mic_frontend` and `pw_audio_play`
+
+Audio goes through PipeWire, with two nodes that live in their own
+repositories: `mic_frontend` (microphones to `/audio/<name>/raw`) and
+`pw_audio_play` (speaker: TTS audio, sound files, `/robot_speaking`). On the
+robot, `docker/pipewire/` creates two PipeWire nodes over the audio card,
+`reachy_mini_mic` and `reachy_mini_speaker`, through the same ALSA sharing
+devices as the daemon, so they work whether the daemon runs or not.
+
+The card is an XMOS XVF3800: 16 kHz stereo only, and both capture channels
+carry the same processed stream (4-mic beamforming, noise suppression, echo
+cancellation against whatever the card plays). mic_frontend therefore needs
+neither `aec` nor, usually, `rnnoise`. A configuration for it, in
+`~/.pal/config/`:
+
+```yaml
+/mic_frontend:
+  ros__parameters:
+    ros_channel_names: ["head"]
+    channel_sources: ["reachy_mini_mic"]
+    channel_indices: [0]
+    channel_filters: ["highpass,vad"]
+    channel_reference_sources: [""]
+```
 
 ## Design
 
