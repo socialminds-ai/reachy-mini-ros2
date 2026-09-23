@@ -223,11 +223,50 @@ sudo systemctl enable --now reachy-mini-driver-docker
 journalctl -u reachy-mini-driver-docker -f
 ```
 
-What you lose without the daemon: sound, camera/WebRTC, the HTTP API on port
-8000 and the Pollen apps. What you keep: the whole ROS graph, `joint_states`,
-`/tf` with the robot model, the ROS4HRI skills.
+What you lose without the daemon: the HTTP API on port 8000, WebRTC and the
+Pollen apps (camera and sound come back through ROS, step 7). What you keep:
+the whole ROS graph, `joint_states`, `/tf` with the robot model, the ROS4HRI
+skills.
 
-## 7. Updating
+## 7. Camera and audio
+
+**Audio** goes through PipeWire, which Raspberry Pi OS already has, but only
+starts when someone logs in. Make it start at boot, and give it the two nodes
+of `docker/pipewire/` (the microphones and the speaker, opened through the
+daemon's ALSA sharing devices, so the daemon can keep its audio):
+
+```sh
+sudo loginctl enable-linger pollen
+mkdir -p ~/.config/pipewire/pipewire.conf.d ~/.config/wireplumber/wireplumber.conf.d
+cp reachy-mini-driver/docker/pipewire/reachy-mini-audio.conf ~/.config/pipewire/pipewire.conf.d/
+cp reachy-mini-driver/docker/pipewire/51-reachy-mini.conf ~/.config/wireplumber/wireplumber.conf.d/
+systemctl --user restart pipewire wireplumber pipewire-pulse
+wpctl status      # Sinks: "Reachy Mini speaker", Sources: "Reachy Mini microphones"
+```
+
+`51-reachy-mini.conf` keeps WirePlumber off the audio card (PipeWire uses it
+through the sharing devices only) and off the video devices (a PipeWire
+camera monitor would hold the camera).
+
+**The container** needs the camera devices and PipeWire's socket: the
+`docker/reachy-mini-ros.service` of this repository has them (`--privileged`,
+`/run/udev`, `/run/user/1000`). Reinstall it if yours predates them, then
+`sudo systemctl daemon-reload && sudo systemctl restart reachy-mini-ros`.
+
+**The camera** has a single owner, and the daemon opens it at startup: stop
+the daemon (step 6) before starting the camera driver.
+
+```sh
+docker exec -it reachy-mini-ros bash -c "ros2 launch reachy_mini_camera_driver camera.launch.py"
+docker exec -it reachy-mini-ros bash -c "ros2 launch mic_frontend mic_frontend.launch.py"
+docker exec -it reachy-mini-ros bash -c "ros2 launch pw_audio_play pw_audio_play.launch.py"
+```
+
+`README.md` ("Camera and audio") lists their topics and parameters, and the
+mic_frontend configuration for this card. `rpicam-hello --list-cameras` on the
+robot (daemon stopped) says whether the kernel sees the camera.
+
+## 8. Updating
 
 ```sh
 docker exec reachy-mini-ros apt update
@@ -238,7 +277,7 @@ Note that the container is started with `--rm`: anything installed by hand insid
 it is lost when the unit restarts it. For a permanent change, rebuild or re-pull
 the image (`docker pull ...` then `sudo systemctl restart reachy-mini-ros`).
 
-## 8. Back to stock
+## 9. Back to stock
 
 ```sh
 sudo systemctl disable --now reachy-mini-driver-docker   # if installed
@@ -275,6 +314,22 @@ The laptop sees no nodes
   middleware. `export RMW_IMPLEMENTATION=rmw_zenoh_cpp` (or `zenoh_reachy`, see
   the tip in step 5), then `ros2 daemon stop` so that a daemon started without
   it is not reused.
+
+The camera driver logs "cannot start the camera" and retries
+: Another process has the camera, usually the Pollen daemon:
+  `sudo systemctl stop reachy-mini-daemon`. If `rpicam-hello --list-cameras` lists
+  no camera even then, check the kernel: `dmesg | grep imx708` must not show
+  "failed to read chip id" for the camera's port (a loose or reversed CSI ribbon
+  gives exactly that; the other port always fails, there being one camera).
+
+`wpctl status` lists no Reachy Mini source or sink
+: The configuration files of step 7 are missing, or PipeWire was not
+  restarted after copying them. `journalctl --user -u pipewire` says why a node
+  failed to open.
+
+mic_frontend or pw_audio_play: "cannot connect to the PipeWire daemon"
+: PipeWire is not running (`loginctl show-user pollen | grep Linger` must say
+  yes), or the container was started without `/run/user/1000`.
 
 `docker exec reachy-mini-ros ros2 ...` says "executable file not found in $PATH"
 : `docker exec` runs the command without a shell and skips the entrypoint, so

@@ -5,11 +5,18 @@
 # --network host : ROS/zenoh reachable on the robot's IP (router on port 7447);
 #                  the Pollen daemon on localhost:8000 is reachable from inside.
 # --device       : the servo bus (usable only while the Pollen daemon is stopped).
+# --privileged, /run/udev : the camera. libcamera needs the CSI receiver, the
+#                  ISP, the sensor subdevices and the DMA heaps, whose device
+#                  numbers are not fixed; the hardware H.264 encoder too.
+# /run/user/1000 : pollen's PipeWire (audio). The whole directory, not the
+#                  socket alone: a bind-mounted socket goes stale when PipeWire
+#                  restarts. Needs `loginctl enable-linger pollen` so that it
+#                  exists at boot (ROBOT_SETUP.md, step 7).
 # huggingface    : the daemon's cache of the emotions library, read-only.
 # /home/pollen/ros : a workspace for building packages from source (optional).
 [Unit]
 Description=ROS 2 Lyrical container for the Reachy Mini
-After=docker.service network-online.target
+After=docker.service network-online.target user@1000.service
 Requires=docker.service
 
 [Service]
@@ -19,6 +26,8 @@ ExecStartPre=-/usr/bin/docker rm -f reachy-mini-ros
 ExecStart=/usr/bin/docker run --rm --name reachy-mini-ros \
     --network host \
     --device /dev/ttyAMA3:/dev/ttyAMA3 \
+    --privileged -v /run/udev:/run/udev:ro \
+    -v /run/user/1000:/run/user/1000 -e XDG_RUNTIME_DIR=/run/user/1000 \
     -v /home/pollen/.cache/huggingface:/root/.cache/huggingface:ro \
     -v /home/pollen/ros:/root/ros \
     reachy-mini-ros:lyrical

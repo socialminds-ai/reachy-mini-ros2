@@ -4,7 +4,8 @@
 # Lyrical binaries, so ROS lives in this Ubuntu-based container. It is started by
 # systemd (see reachy-mini-ros.service) with --network host and the servo serial
 # port passed through, so nodes inside can reach both the Pollen daemon on
-# localhost:8000 and, when the daemon is stopped, the motors directly.
+# localhost:8000 and, when the daemon is stopped, the motors directly; also with
+# the camera devices and the host's PipeWire socket.
 #
 # Build (any machine with buildx, arm64 emulated):
 #   docker buildx build --platform linux/arm64 -t reachy-mini-ros:lyrical docker/
@@ -32,6 +33,27 @@ RUN curl -fsSL https://socialminds.doc.iiia.csic.es/apt/public.key | gpg --dearm
        > /etc/apt/sources.list.d/socialminds.list \
     && apt-get update && apt-get install -y --no-install-recommends \
       socialminds-ros-${ROS_DISTRO}-reachy-mini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Camera and audio (ROBOT_SETUP.md, step 7). libcamerasrc and the Raspberry Pi
+# IPA have no rosdep key, so reachy_mini_camera_driver cannot pull them in.
+# pipewire-bin brings the client configuration that mic_frontend and
+# pw_audio_play load; the PipeWire daemon itself runs on the host.
+# The rest is what reachy_mini_camera_driver, pw_audio_play and audio_tts_msgs
+# need to run and to be built in /root/ros, until they come from the apt
+# repository.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      gstreamer1.0-libcamera libcamera-ipa pipewire-bin \
+      gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+      libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+      libpipewire-0.3-dev libsndfile1-dev pkg-config \
+      python3-colcon-common-extensions \
+      ros-${ROS_DISTRO}-rosidl-default-generators \
+      ros-${ROS_DISTRO}-camera-info-manager \
+      ros-${ROS_DISTRO}-ffmpeg-image-transport-msgs ros-${ROS_DISTRO}-ffmpeg-image-transport \
+      ros-${ROS_DISTRO}-foxglove-msgs \
+      socialminds-ros-${ROS_DISTRO}-audio-common-msgs \
+      socialminds-ros-${ROS_DISTRO}-mic-frontend \
     && rm -rf /var/lib/apt/lists/*
 
 # Pollen Robotics SDK (optional: only the Python driver needs it; the C++ driver
