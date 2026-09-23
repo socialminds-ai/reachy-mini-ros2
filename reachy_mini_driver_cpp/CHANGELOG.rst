@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.4.0 (2026-09-17)
 ------------------
 * Adopt the ROS4HRI skill API instead of the private PlayMove action

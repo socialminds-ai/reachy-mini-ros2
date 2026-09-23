@@ -2,6 +2,18 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* reachy_mini: camera:=true, RViz config with the model, TF and the camera
+  - depends on reachy_mini_camera_driver; driver.launch.py camera:=true
+  includes its launch file (namespace /camera)
+  - rviz/reachy_mini.rviz: grid, robot model, TF and the camera image
+  (decoded from the H.264 stream by the ffmpeg image transport);
+  driver.launch.py rviz:=true opens it instead of the description's
+  model-only configuration
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 0.4.0 (2026-09-17)
 ------------------
 * Adopt the ROS4HRI skill API instead of the private PlayMove action

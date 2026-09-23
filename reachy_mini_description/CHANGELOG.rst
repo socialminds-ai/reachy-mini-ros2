@@ -2,6 +2,21 @@
 Changelog for package reachy_mini_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* reachy_mini_description: drop hidden meshes, white head and black eyes
+  - convert_sdk_urdf.py drops the visuals hidden inside the shells (servo
+  cases, horns, screws, connectors, antenna holders, camera board, fisheye
+  lenses), checked by rendering the model from many viewpoints:
+  161 -> 45 visuals, 41 -> 23 meshes (9.4 -> 5.7 MB)
+  - opaque black lenses and glasses, white neck piece
+  - RViz paints all the visuals of a link with the first visual's material,
+  so each link now carries a single colour and the visuals of other
+  colours hang on fixed child links <link>_color<n>
+  - unused meshes are removed from meshes/
+  Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 0.4.0 (2026-09-17)
 ------------------
 
