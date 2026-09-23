@@ -2,6 +2,21 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* reachy_mini: driver.launch.py starts the whole robot (servos, camera, audio)
+  - driver.launch.py also starts the microphones (mic_frontend) and the
+  speaker (pw_audio_play) through their own launch files; camera and audio
+  are now on by default (camera:=false, audio:=false to leave them out)
+  - config/mic_frontend/ and config/pw_audio_play/: the Reachy Mini settings
+  of the audio nodes (reachy_mini_mic, one `head` channel, highpass,vad;
+  target reachy_mini_speaker), registered as pal_configuration resources so
+  that launch_pal merges them over the nodes' defaults
+  - depends on mic_frontend and pw_audio_play
+  - README and ROBOT_SETUP.md describe the full bring-up and the audio topics
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 0.5.0 (2026-09-23)
 ------------------
 * reachy_mini: camera:=true, RViz config with the model, TF and the camera

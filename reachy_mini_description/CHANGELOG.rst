@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.5.0 (2026-09-23)
 ------------------
 * reachy_mini_description: drop hidden meshes, white head and black eyes
