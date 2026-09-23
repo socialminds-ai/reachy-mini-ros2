@@ -233,7 +233,7 @@ To watch it from a laptop, with the robot model and TF:
 
 Audio goes through PipeWire, with two nodes that live in their own
 repositories: `mic_frontend` (microphones to `/audio/<name>/raw`) and
-`pw_audio_play` (speaker: TTS audio, sound files, `/robot_speaking`). On the
+`pw_audio_play` (`audio_common_msgs` audio to the speaker). On the
 robot, `docker/pipewire/` creates two PipeWire nodes over the audio card,
 `reachy_mini_mic` and `reachy_mini_speaker`, through the same ALSA sharing
 devices as the daemon, so they work whether the daemon runs or not.

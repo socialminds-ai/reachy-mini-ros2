@@ -39,16 +39,14 @@ RUN curl -fsSL https://socialminds.doc.iiia.csic.es/apt/public.key | gpg --dearm
 # IPA have no rosdep key, so reachy_mini_camera_driver cannot pull them in.
 # pipewire-bin brings the client configuration that mic_frontend and
 # pw_audio_play load; the PipeWire daemon itself runs on the host.
-# The rest is what reachy_mini_camera_driver, pw_audio_play and audio_tts_msgs
-# need to run and to be built in /root/ros, until they come from the apt
-# repository.
+# The rest is what reachy_mini_camera_driver and pw_audio_play need to run
+# and to be built in /root/ros, until they come from the apt repository.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       gstreamer1.0-libcamera libcamera-ipa pipewire-bin \
       gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
       libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-      libpipewire-0.3-dev libsndfile1-dev pkg-config \
+      libpipewire-0.3-dev pkg-config \
       python3-colcon-common-extensions \
-      ros-${ROS_DISTRO}-rosidl-default-generators \
       ros-${ROS_DISTRO}-camera-info-manager \
       ros-${ROS_DISTRO}-ffmpeg-image-transport-msgs ros-${ROS_DISTRO}-ffmpeg-image-transport \
       ros-${ROS_DISTRO}-foxglove-msgs \
