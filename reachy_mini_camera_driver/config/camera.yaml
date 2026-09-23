@@ -1,0 +1,23 @@
+# Default parameters of the Reachy Mini camera driver. All of them can be
+# changed at runtime (`ros2 param set /camera/camera width 1920`), except the
+# read-only ones (source, camera_name, encoder, frame_id, camera_info_url).
+/**:
+  ros__parameters:
+    source: libcamera          # or 'v4l2:/dev/video0', or 'test'
+    encoder: v4l2h264enc       # Raspberry Pi hardware; x264enc / openh264enc elsewhere
+    frame_id: camera_optical
+    camera_info_url: ""        # e.g. file:///root/ros/camera.yaml (from camera_calibration)
+    lazy: true                 # camera off while nobody subscribes
+
+    # stream (changing one restarts the camera, about a second)
+    width: 1280                # the IMX708 wide sensor is 16:9; the ISP scales,
+    height: 720                # other aspect ratios are cropped
+    framerate: 30
+    bitrate: 2000000           # bit/s; the compression level
+    keyframe_interval: 60      # frames; new subscribers also get a keyframe at once
+    h264_profile: high         # baseline, main or high
+
+    # image controls (applied live)
+    autofocus_mode: continuous # continuous, auto or manual
+    lens_position: 1.0         # dioptres (1/m), with autofocus_mode manual
+    exposure_value: 0.0        # EV
