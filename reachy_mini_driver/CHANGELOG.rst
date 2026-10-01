@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.7.0 (2026-10-01)
+------------------
 * docs: README follows the main path (installation, usage, tests)
   - README.md: installation (an off-the-shelf Reachy Mini to a ROS robot,
   with the Pollen daemon or ROS as the default at boot), usage (start ROS

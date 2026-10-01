@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.7.0 (2026-10-01)
+------------------
 * move the full RViz configuration to reachy_mini_description
   - reachy_mini_description/rviz/reachy_mini.rviz is now the full
   configuration (model, TF, camera image), replacing the model-only one;
