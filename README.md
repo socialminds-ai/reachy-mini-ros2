@@ -2,7 +2,7 @@
 
 ROS 2 Lyrical support for the Pollen Robotics Reachy Mini (wireless): the
 servos, the robot model and TF, the camera, the microphones and the speaker, and
-the [ROS4HRI skills](https://ros4hri.github.io/skills.json) (`replay_motion`,
+the [ROS4HRI skills](https://ros4hri.github.io/skills/) (`replay_motion`,
 `look_at`, ...), all as ROS nodes that run on the robot and own the hardware
 directly, without the Pollen daemon.
 
@@ -23,21 +23,11 @@ details, native and from-source installations are in
 
 ## How the pieces fit
 
-```
- Reachy Mini (Raspberry Pi OS, Debian trixie)            your machine (ROS 2 Lyrical)
- ┌──────────────────────────────────────────────┐        ┌──────────────────────────┐
- │ container reachy-mini-ros (Ubuntu, ROS 2)    │        │ zenoh router ────────────┼──┐
- │   driver, robot_state_publisher, camera,     │        │ rviz2, ros2 CLI,         │  │
- │   mic_frontend, pw_audio_play                │        │ your nodes               │  │
- │   zenoh router, TCP 7447  ◄──────────────────┼────────┼──────────────────────────┼──┘
- │ servo bus /dev/ttyAMA3, camera, PipeWire     │        └──────────────────────────┘
- │ Pollen daemon (reachy-mini-daemon), when ROS │
- │ does not own the robot                       │
- └──────────────────────────────────────────────┘
-```
+![The ROS container on the robot, the Pollen daemon, the hardware they share, and your machine connected over zenoh](doc/architecture.svg)
 
 The robot runs Debian trixie, which has no ROS 2 Lyrical binaries, so ROS runs
-there in an Ubuntu-based Docker container (`docker/`). All ROS traffic uses
+there in an Ubuntu-based Docker container (image built from
+[`docker/Dockerfile`](docker/Dockerfile)). All ROS traffic uses
 `rmw_zenoh_cpp`: the container runs a zenoh router on port 7447, and your machine
 runs a second router that connects to it (no multicast, so it works from a
 container or through a NAT too).
@@ -58,8 +48,8 @@ download.
 * Its hostname or IP: `reachy-mini.local` for a single robot, otherwise
   `reachy-mini-XXXX.local` (mDNS), or the IP shown by the Pollen app or your
   router.
-* The `pollen` account on the robot, with its password (the one set at
-  onboarding) and `sudo`.
+* The `pollen` account on the robot, which has `sudo`. Its default password
+  is `root`.
 
 ### 1.2 Log in, fix the clock, get this repository
 
@@ -100,16 +90,22 @@ git clone https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy-mini-
 
 ### 1.3 Docker, the ROS image and the container
 
-`docker/provision.sh` does all of this section in one go, and the clock setup
-of section 1.2 too (it is idempotent):
+Three steps: install Docker, get the ROS image, and have systemd keep the
+container running.
 
-```sh
-sudo bash reachy-mini-driver/docker/provision.sh
-```
-
-It pulls the image from the lab's registry if root is logged in to it (install
-Docker and run `sudo docker login gitlab.iiia.csic.es:5005` first), and builds
-it on the robot otherwise (about an hour). The manual steps are below.
+> 💡 **Tip: one script instead of the steps below.**
+> `docker/provision.sh` does all of this section, and the clock setup of
+> section 1.2, in one go (it is idempotent). Run it *instead of* the manual
+> steps below, not before them:
+>
+> ```sh
+> sudo bash reachy-mini-driver/docker/provision.sh
+> ```
+>
+> It pulls the pre-built image from the IIIA registry if root is logged in to
+> it (install Docker and run `sudo docker login gitlab.iiia.csic.es:5005`
+> first), and otherwise builds it on the robot (about an hour). Then go on to
+> section 1.4.
 
 **Docker**:
 
@@ -120,8 +116,11 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker pollen          # then log out and in again
 ```
 
-**The image**, pulled (minutes; built by this repository's `robot-image`
-pipeline job):
+**The image**, either pulled or built.
+
+The pre-built image (built by this repository's `robot-image` pipeline job) is
+in the IIIA GitLab registry, which is currently only open to IIIA staff; this
+may change. Pulling it takes minutes:
 
 ```sh
 docker login gitlab.iiia.csic.es:5005          # your GitLab credentials or a deploy token
@@ -129,7 +128,8 @@ docker pull gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-d
 docker tag gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical reachy-mini-ros:lyrical
 ```
 
-or built on the robot (about an hour, needs Internet):
+Anyone can instead build the same image on the robot from this repository
+(about an hour, needs Internet):
 
 ```sh
 docker build -t reachy-mini-ros:lyrical reachy-mini-driver/docker/
@@ -218,12 +218,46 @@ sudo systemctl enable --now reachy-mini-daemon
 
 ### 1.6 Updating, and going back to stock
 
-The newest driver packages come with a newer image:
+The newest driver packages come with a newer image: pull it from the registry,
+or rebuild it, then remove the previous image and restart the container.
+
+With access to the registry:
 
 ```sh
 docker pull gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical
 docker tag gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical reachy-mini-ros:lyrical
+```
+
+Otherwise, rebuild it (`--no-cache` matters: without it Docker reuses the cached
+`apt install` layers, with the old packages):
+
+```sh
+git -C reachy-mini-driver pull
+docker build --no-cache -t reachy-mini-ros:lyrical reachy-mini-driver/docker/
+```
+
+Then, in both cases:
+
+```sh
+docker image prune -f                  # remove the previous image
+docker builder prune -f                # and the build cache, after a rebuild
 sudo systemctl restart reachy-mini-ros
+```
+
+Do not skip the prune: the previous image stays on the card, untagged, after a
+pull or a rebuild. The robot's root partition is about 14 GB and an image about
+4 GB, so two or three of them fill it up, and then the container can no longer
+start. `docker images` should list a single `reachy-mini-ros` image (under two
+names if pulled) and `docker system df` about 4 GB. If the card is already too
+full for the update, remove the current image first, then update and restart as
+above:
+
+```sh
+sudo systemctl stop reachy-mini-ros
+docker rmi reachy-mini-ros:lyrical
+docker rmi gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical   # if pulled
+docker image prune -f
+docker builder prune -f
 ```
 
 `docker exec reachy-mini-ros bash -c "apt update && apt install -y socialminds-ros-lyrical-reachy-mini"`
@@ -448,7 +482,12 @@ zenoh logs "incoming timestamp ... exceeding delta 500ms is rejected"
   `timedatectl | grep synchronized` on both and set up NTP as in section 1.2.
 
 `docker pull` says "unauthorized"
-: The registry needs a login (section 1.3); or build the image on the robot.
+: The registry needs a login, and is currently only open to IIIA staff: build
+  the image on the robot instead (section 1.3).
+
+"no space left on device", or `df -h /` on the robot shows the card full
+: Old images left behind by updates: `docker system df` shows their size, and
+  `docker image prune -f` removes the untagged ones (section 1.6).
 
 Your machine sees no nodes
 : Router not connected: check `ZENOH_CONFIG_OVERRIDE` and that TCP 7447 is

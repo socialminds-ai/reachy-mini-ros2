@@ -261,7 +261,7 @@ from what was read, so the first goals written are where the head already is.
 ### Motions as ROS4HRI skills, and the initial goto
 
 The daemon's `play_move()` became the standard `replay_motion` skill
-(`motions_skills/action/ReplayMotion`, from https://ros4hri.github.io/skills.json) rather
+(`motions_skills/action/ReplayMotion`, from https://ros4hri.github.io/skills/) rather
 than a private action, so that a behaviour node written for any ROS4HRI robot drives
 this one: the goal is `name` + a `std_skills/Meta` (`caller`, `priority`), the result a
 `std_skills/Result` error code, the feedback `data_float` = progress 0..1. An action fits

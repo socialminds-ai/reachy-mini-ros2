@@ -29,7 +29,7 @@ executable `driver_node`:
 | parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `extra_datasets` (more libraries searched by the motion skills), `wake_up_on_start`, `sleep_on_shutdown`, `publish_tf`, `base_frame`, `skills_namespace` (`/skill`), `motion_initial_goto` (0.5 s), `glance_duration` (2 s, C++ only) |
 | publishes | `joint_states` (9 joints: body_yaw, stewart_1..6, right_antenna, left_antenna), `~/head_pose`, and on `/tf` the frames `robot_state_publisher` cannot derive from joint angles: `base_link -> head` (forward kinematics of the Stewart platform) and `base_link -> rod_1..6` |
 | subscribes | `~/target_head_pose` (geometry_msgs/PoseStamped), `~/target_antennas` (reachy_mini_msgs/AntennasTarget), `~/target_body_yaw` (std_msgs/Float64) |
-| skills | see below: the driver implements the [ROS4HRI skills](https://ros4hri.github.io/skills.json) that map onto the hardware, under `skills_namespace` (`/skill` by default) |
+| skills | see below: the driver implements the [ROS4HRI skills](https://ros4hri.github.io/skills/) that map onto the hardware, under `skills_namespace` (`/skill` by default) |
 
 The control loop runs at 50 Hz: read the 9 motor positions, publish them and the
 head pose (forward kinematics), evaluate the move or goto in progress, inverse

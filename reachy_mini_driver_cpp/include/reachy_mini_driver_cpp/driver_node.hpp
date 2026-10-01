@@ -16,7 +16,7 @@
 #define REACHY_MINI_DRIVER_CPP__DRIVER_NODE_HPP_
 
 // The driver node: a 50 Hz control loop around the servo bus, exposed through
-// the ROS4HRI skills (https://ros4hri.github.io/skills). Every tick:
+// the ROS4HRI skills (https://ros4hri.github.io/skills/). Every tick:
 //   1. read the 9 motor positions, publish JointState, head pose (FK) and TF;
 //   2. decide the target: the motion being executed (replay_motion,
 //      execute_cartesian_trajectory, execute_joint_trajectory), else the goto in

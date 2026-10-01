@@ -48,6 +48,8 @@ echo "== 3. image"
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   if docker pull "$REGISTRY_IMAGE" 2>/dev/null; then
     docker tag "$REGISTRY_IMAGE" "$IMAGE"
+    # an image superseded by an earlier pull stays on the card, untagged
+    docker image prune -f
   else
     echo "registry image not available (not logged in?), building locally (about an hour on a Pi)"
     docker build -t "$IMAGE" "$HERE"
