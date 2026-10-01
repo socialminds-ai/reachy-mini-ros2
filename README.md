@@ -448,6 +448,7 @@ the robot (section 2.1). Each check names what to look at if it fails
 | camera | `ros2 topic hz /camera/image_raw/ffmpeg` | about 30 Hz (after a second: the camera starts on the first subscriber) |
 | microphones | `ros2 topic hz /audio/head/raw` | about 100 Hz (10 ms chunks) |
 | | `ros2 topic echo /audio/head/voice_detected` | `true` while someone speaks near the robot |
+| | `python3 tools/record_audio.py /audio/head/raw head.wav 10`, then `aplay head.wav` | 10 s of clear speech, no dropouts or clicks |
 | everything together | RViz, section 2.3 | the model moves with the robot, the camera image shows |
 
 The motion checks move the robot: make sure it has room.
