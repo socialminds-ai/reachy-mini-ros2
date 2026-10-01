@@ -19,7 +19,10 @@ USER root
 RUN for u in $(awk '{print $1}' /var/lib/dpkg/statoverride 2>/dev/null | sort -u); do \
       getent passwd "$u" >/dev/null || sed -i "/^$u /d" /var/lib/dpkg/statoverride; done
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Upgrade first: packages installed below come from the latest ROS sync and can
+# be ABI-incompatible with the older builds in the base image (seen: octomap_msgs
+# 20260915 needing symbols missing from std_msgs 20260811 -> driver_node exit 127).
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
       curl gnupg ca-certificates iputils-ping iproute2 nano less \
       python3-pip python3-requests python3-websockets python3-yaml \
       ros-${ROS_DISTRO}-rmw-zenoh-cpp \
