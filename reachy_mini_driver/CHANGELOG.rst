@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.7.0 (2026-10-01)
 ------------------
 * docs: README follows the main path (installation, usage, tests)

@@ -2,6 +2,9 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.7.0 (2026-10-01)
 ------------------
 * move the full RViz configuration to reachy_mini_description

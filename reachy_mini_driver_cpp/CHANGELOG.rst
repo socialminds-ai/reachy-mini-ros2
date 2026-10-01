@@ -2,6 +2,23 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* docs: architecture diagram, image pruning, registry access
+  - doc/architecture.svg replaces the ASCII diagram of the README: the ROS
+  container and the Pollen daemon on the robot, the hardware they own, and
+  the developer machine connected over zenoh
+  - updating the image now prunes the previous one (README 1.6, provision.sh):
+  each update otherwise leaves ~4 GB behind and fills the 14 GB card;
+  rebuilding uses --no-cache so that apt fetches the new packages
+  - the pre-built image is only available to IIIA staff for now; the README
+  says so and gives the build-it-yourself path for installs and updates
+  - provision.sh is presented as a tip, instead of the manual steps
+  - the pollen account's default password is root
+  - ROS4HRI skills link: https://ros4hri.github.io/skills/
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 0.7.0 (2026-10-01)
 ------------------
 
