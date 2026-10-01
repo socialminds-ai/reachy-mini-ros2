@@ -182,6 +182,20 @@ sudo systemctl restart reachy-mini-ros     # so the container sees PipeWire's so
 through the sharing devices only) and off the video devices (a PipeWire camera
 monitor would hold the camera).
 
+Then set the speaker volume. The card has two gain stages, ALSA controls `PCM,0`
+and `PCM,1`; the daemon puts `PCM,1` at 100% when it starts and drives `PCM,0`
+with its volume API. Without the daemon (option B below) nobody sets them, and
+both stay at the saved -20 dB: the speaker is barely audible. Put both at 100%
+and save them (restored at boot):
+
+```sh
+amixer -c 0 sset PCM,0 100%
+amixer -c 0 sset PCM,1 100%
+sudo alsactl store 0
+```
+
+The playback volume is then set in ROS: `ros2 param set /pw_audio_play volume 0.5`.
+
 ### 1.5 Choose what owns the robot at boot
 
 **Option A: keep the Pollen daemon as the default.** Nothing more to do. The
@@ -449,6 +463,7 @@ the robot (section 2.1). Each check names what to look at if it fails
 | microphones | `ros2 topic hz /audio/head/raw` | about 100 Hz (10 ms chunks) |
 | | `ros2 topic echo /audio/head/voice_detected` | `true` while someone speaks near the robot |
 | | `python3 tools/record_audio.py /audio/head/raw head.wav 10`, then `aplay head.wav` | 10 s of clear speech, no dropouts or clicks |
+| speaker | `python3 tools/play_audio.py` (a piano sample from the web; or a WAV file, or `tone`) | the robot plays it cleanly; `ros2 topic echo /pw_audio_play/is_playing` says `true` meanwhile |
 | everything together | RViz, section 2.3 | the model moves with the robot, the camera image shows |
 
 The motion checks move the robot: make sure it has room.
@@ -533,6 +548,10 @@ mic_frontend or pw_audio_play: "cannot connect to the PipeWire daemon"
 : PipeWire is not running (`loginctl show-user pollen | grep Linger` must say
   yes), or the container was started without `/run/user/1000` (reinstall
   `docker/reachy-mini-ros.service` from this repository).
+
+The speaker is barely audible
+: The ALSA volumes were not set (section 1.4): `amixer -c 0 sget PCM,0` and
+  `PCM,1` must say 100% (0 dB).
 
 `docker exec reachy-mini-ros ros2 ...` says "executable file not found in $PATH"
 : `docker exec` runs the command without a shell and skips the entrypoint, so
