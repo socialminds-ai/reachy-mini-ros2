@@ -356,49 +356,50 @@ Use the robot's IP rather than its `.local` name wherever mDNS does not resolve
 container), but `RMW_IMPLEMENTATION` must be set in every terminal: a `ros2`
 command without it uses the default middleware and sees nothing of the robot.
 
-**Tip.** This function, added to your `~/.bashrc`, does both: the first call
-starts the router (after checking that the robot answers), later calls in other
-terminals only set `RMW_IMPLEMENTATION`.
-
-```sh
-# Set up this terminal to talk to the Reachy Mini over zenoh.
-# Usage: zenoh_reachy [robot IP]   (default: $REACHY_IP)
-zenoh_reachy() {
-  local ip="${1:-$REACHY_IP}"
-  local log=/tmp/rmw_zenohd.log
-  export RMW_IMPLEMENTATION=rmw_zenoh_cpp
-  if (: </dev/tcp/127.0.0.1/7447) 2>/dev/null; then
-    echo "zenoh router already running (log: $log)"
-    return 0
-  fi
-  if [ -z "$ip" ]; then
-    echo "usage: zenoh_reachy <robot IP>   (or set REACHY_IP)"
-    return 1
-  fi
-  if ! timeout 2 bash -c ": </dev/tcp/$ip/7447" 2>/dev/null; then
-    echo "ERROR: no zenoh router at $ip:7447 (wrong IP? robot container down?)"
-    return 1
-  fi
-  # in a subshell: detached from this terminal, and no job-control noise
-  (ZENOH_CONFIG_OVERRIDE="connect/endpoints=[\"tcp/$ip:7447\"]" \
-    setsid ros2 run rmw_zenoh_cpp rmw_zenohd >"$log" 2>&1 </dev/null &)
-  local i
-  for i in $(seq 20); do
-    if (: </dev/tcp/127.0.0.1/7447) 2>/dev/null; then
-      ros2 daemon stop >/dev/null 2>&1   # a daemon started with another RMW would be stale
-      echo "zenoh router started, connected to $ip (log: $log)"
-      return 0
-    fi
-    sleep 0.25
-  done
-  echo "ERROR: zenoh router did not start, see $log:"
-  tail -5 "$log"
-  return 1
-}
-```
-
-The router keeps running when its terminal closes. If it was started with the
-wrong IP, `pkill rmw_zenohd` and call `zenoh_reachy <robot IP>` again.
+> 💡 **Tip: a `zenoh_reachy` shortcut.**
+> This function, added to your `~/.bashrc`, does both: the first call starts the
+> router (after checking that the robot answers), later calls in other terminals
+> only set `RMW_IMPLEMENTATION`.
+>
+> ```sh
+> # Set up this terminal to talk to the Reachy Mini over zenoh.
+> # Usage: zenoh_reachy [robot IP]   (default: $REACHY_IP)
+> zenoh_reachy() {
+>   local ip="${1:-$REACHY_IP}"
+>   local log=/tmp/rmw_zenohd.log
+>   export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+>   if (: </dev/tcp/127.0.0.1/7447) 2>/dev/null; then
+>     echo "zenoh router already running (log: $log)"
+>     return 0
+>   fi
+>   if [ -z "$ip" ]; then
+>     echo "usage: zenoh_reachy <robot IP>   (or set REACHY_IP)"
+>     return 1
+>   fi
+>   if ! timeout 2 bash -c ": </dev/tcp/$ip/7447" 2>/dev/null; then
+>     echo "ERROR: no zenoh router at $ip:7447 (wrong IP? robot container down?)"
+>     return 1
+>   fi
+>   # in a subshell: detached from this terminal, and no job-control noise
+>   (ZENOH_CONFIG_OVERRIDE="connect/endpoints=[\"tcp/$ip:7447\"]" \
+>     setsid ros2 run rmw_zenoh_cpp rmw_zenohd >"$log" 2>&1 </dev/null &)
+>   local i
+>   for i in $(seq 20); do
+>     if (: </dev/tcp/127.0.0.1/7447) 2>/dev/null; then
+>       ros2 daemon stop >/dev/null 2>&1   # a daemon started with another RMW would be stale
+>       echo "zenoh router started, connected to $ip (log: $log)"
+>       return 0
+>     fi
+>     sleep 0.25
+>   done
+>   echo "ERROR: zenoh router did not start, see $log:"
+>   tail -5 "$log"
+>   return 1
+> }
+> ```
+>
+> The router keeps running when its terminal closes. If it was started with the
+> wrong IP, `pkill rmw_zenohd` and call `zenoh_reachy <robot IP>` again.
 
 ### 2.3 RViz
 
