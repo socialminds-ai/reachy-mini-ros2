@@ -2,6 +2,18 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* move the full RViz configuration to reachy_mini_description
+  - reachy_mini_description/rviz/reachy_mini.rviz is now the full
+  configuration (model, TF, camera image), replacing the model-only one;
+  reachy_mini no longer installs an rviz/ directory
+  - driver.launch.py rviz:=true opens it from reachy_mini_description
+  - a developer machine only needs the description package to see the robot,
+  its TF and its camera in RViz, not the drivers
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 0.6.0 (2026-09-23)
 ------------------
 * reachy_mini: driver.launch.py starts the whole robot (servos, camera, audio)

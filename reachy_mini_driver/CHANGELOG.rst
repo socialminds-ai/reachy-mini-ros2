@@ -2,6 +2,21 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* docs: README follows the main path (installation, usage, tests)
+  - README.md: installation (an off-the-shelf Reachy Mini to a ROS robot,
+  with the Pollen daemon or ROS as the default at boot), usage (start ROS
+  on the robot, connect a developer machine or container over zenoh, RViz),
+  quick tests, troubleshooting
+  - ROBOT_SETUP.md merged into the README and removed
+  - REFERENCE.md (new): launch arguments, driver interface and skills, TF,
+  camera and audio details, native and from-source installations
+  - references to ROBOT_SETUP.md updated in docker/, DESIGN.md and
+  reachy_mini_driver/package.xml
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 0.6.0 (2026-09-23)
 ------------------
 
