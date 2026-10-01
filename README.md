@@ -412,6 +412,8 @@ The configuration shows the robot model (from `/robot_description`), the TF
 frames and the camera image (`/camera/image_raw/ffmpeg`). The camera starts when
 RViz subscribes to it, so the image appears after a second or two.
 
+![RViz with the Reachy Mini configuration: the camera image on the left, the robot model on the right](doc/rviz.jpg)
+
 ### 2.4 Your own nodes
 
 Nodes on your machine see the robot's topics, services and actions as if they
