@@ -11,7 +11,7 @@
 # /run/user/1000 : pollen's PipeWire (audio). The whole directory, not the
 #                  socket alone: a bind-mounted socket goes stale when PipeWire
 #                  restarts. Needs `loginctl enable-linger pollen` so that it
-#                  exists at boot (ROBOT_SETUP.md, step 7).
+#                  exists at boot (README.md, section 1.4).
 # huggingface    : the daemon's cache of the emotions library, read-only.
 # /home/pollen/ros : a workspace for building packages from source (optional).
 [Unit]

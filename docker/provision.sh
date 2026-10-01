@@ -1,7 +1,7 @@
 #!/bin/bash
 # One-shot provisioning of a Reachy Mini (wireless) for ROS 2.
 # Run it ON the robot:   sudo bash provision.sh
-# Details and the manual steps: ../ROBOT_SETUP.md
+# Details and the manual steps: ../README.md (section 1, Installation)
 #
 # What it does (idempotent):
 #   1. points timesyncd at a reachable NTP server and waits for sync
@@ -32,7 +32,7 @@ done
 if timedatectl show -p NTPSynchronized --value | grep -q yes; then
   echo "clock synchronised"
 else
-  echo "WARNING: clock not synchronised; set it by hand (see ROBOT_SETUP.md, step 1)"
+  echo "WARNING: clock not synchronised; set it by hand (see README.md, section 1.2)"
 fi
 date -u
 

@@ -35,7 +35,7 @@ RUN curl -fsSL https://socialminds.doc.iiia.csic.es/apt/public.key | gpg --dearm
       socialminds-ros-${ROS_DISTRO}-reachy-mini \
     && rm -rf /var/lib/apt/lists/*
 
-# Camera and audio (ROBOT_SETUP.md, step 7). libcamerasrc and the Raspberry Pi
+# Camera and audio (README.md, section 1.4). libcamerasrc and the Raspberry Pi
 # IPA have no rosdep key, so reachy_mini_camera_driver cannot pull them in.
 # pipewire-bin brings the client configuration that mic_frontend and
 # pw_audio_play load; the PipeWire daemon itself runs on the host.

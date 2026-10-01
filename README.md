@@ -1,270 +1,510 @@
-# Reachy Mini driver (ROS 2)
+# Reachy Mini ROS 2
 
-Bare-metal ROS 2 support for the Pollen Robotics Reachy Mini: nodes that own the
-servo bus directly, without the Pollen daemon. Targets ROS 2 Lyrical.
+ROS 2 Lyrical support for the Pollen Robotics Reachy Mini (wireless): the
+servos, the robot model and TF, the camera, the microphones and the speaker, and
+the [ROS4HRI skills](https://ros4hri.github.io/skills.json) (`replay_motion`,
+`look_at`, ...), all as ROS nodes that run on the robot and own the hardware
+directly, without the Pollen daemon.
 
-| package | what |
-|---|---|
-| `reachy_mini_c` | C library (Rust inside, built by cargo) over Pollen's motor-controller and kinematics crates: `rmc_motors_*`, `rmc_kinematics_*`. See its `VENDORING.md`. |
-| `reachy_mini_msgs` | Interfaces: `msg/AntennasTarget` (the skills use the standard ROS4HRI packages `motions_skills`, `interaction_skills`, `std_skills`). |
-| `reachy_mini_driver` | The driver node in Python (uses Pollen's Python wheels for motors and kinematics). |
-| `reachy_mini_driver_cpp` | The same driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json). |
-| `reachy_mini_camera_driver` | The camera (IMX708 wide, CSI) through libcamera: H.264 from the Pi's hardware encoder for `ffmpeg_image_transport` and Foxglove, raw frames on demand. See "Camera and audio" below. |
-| `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured so that `robot_state_publisher` publishes what it can and the driver broadcasts the rest. |
-| `reachy_mini` | Metapackage: depends on all of the above and on the audio nodes (`mic_frontend`, `pw_audio_play`), and ships the launch file that starts them all, the parameter files, the RViz configuration and the systemd unit. Install this one. |
-| `docker/` | The ROS 2 container image for the robot and its systemd units (not a ROS package); see `ROBOT_SETUP.md`. |
+This page follows the main path:
 
-## The driver node
+1. **[Installation](#1-installation-turn-a-reachy-mini-into-a-ros-robot)**: take
+   an off-the-shelf Reachy Mini and make it a ROS robot, keeping the Pollen
+   daemon as the default or making ROS the default;
+2. **[Usage](#2-usage)**: start ROS on the robot, connect your own machine to it
+   over zenoh, open RViz;
+3. **[Tests](#3-tests-is-everything-working)**: check in a few minutes that
+   everything works.
 
-Both implementations expose the same interface. Node `reachy_mini_driver`,
-executable `driver_node`:
+The interface of the nodes (parameters, topics, skills, TF), the camera and audio
+details, native and from-source installations are in
+**[REFERENCE.md](REFERENCE.md)**; why the driver is built the way it is, in
+**[DESIGN.md](DESIGN.md)**.
 
-| | |
-|---|---|
-| parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `extra_datasets` (more libraries searched by the motion skills), `wake_up_on_start`, `sleep_on_shutdown`, `publish_tf`, `base_frame`, `skills_namespace` (`/skill`), `motion_initial_goto` (0.5 s), `glance_duration` (2 s, C++ only) |
-| publishes | `joint_states` (9 joints: body_yaw, stewart_1..6, right_antenna, left_antenna), `~/head_pose`, and on `/tf` the frames `robot_state_publisher` cannot derive from joint angles: `base_link -> head` (forward kinematics of the Stewart platform) and `base_link -> rod_1..6` |
-| subscribes | `~/target_head_pose` (geometry_msgs/PoseStamped), `~/target_antennas` (reachy_mini_msgs/AntennasTarget), `~/target_body_yaw` (std_msgs/Float64) |
-| skills | see below: the driver implements the [ROS4HRI skills](https://ros4hri.github.io/skills.json) that map onto the hardware, under `skills_namespace` (`/skill` by default) |
+## How the pieces fit
 
-### Skills (ROS4HRI)
+```
+ Reachy Mini (Raspberry Pi OS, Debian trixie)            your machine (ROS 2 Lyrical)
+ ┌──────────────────────────────────────────────┐        ┌──────────────────────────┐
+ │ container reachy-mini-ros (Ubuntu, ROS 2)    │        │ zenoh router ────────────┼──┐
+ │   driver, robot_state_publisher, camera,     │        │ rviz2, ros2 CLI,         │  │
+ │   mic_frontend, pw_audio_play                │        │ your nodes               │  │
+ │   zenoh router, TCP 7447  ◄──────────────────┼────────┼──────────────────────────┼──┘
+ │ servo bus /dev/ttyAMA3, camera, PipeWire     │        └──────────────────────────┘
+ │ Pollen daemon (reachy-mini-daemon), when ROS │
+ │ does not own the robot                       │
+ └──────────────────────────────────────────────┘
+```
 
-The driver is the *skill server* for what the servos can do. Any ROS4HRI-compatible
-behaviour node can use it without knowing anything Reachy-specific: the goals carry a
-`std_skills/Meta` (`caller`, `priority`), the results a `std_skills/Result`
-(`error_code` + `error_msg`, codes from `std_skills/msg/Result`), feedback a
-`std_skills/Feedback` (`data_float` = progress 0..1, `data_str` = what is playing).
+The robot runs Debian trixie, which has no ROS 2 Lyrical binaries, so ROS runs
+there in an Ubuntu-based Docker container (`docker/`). All ROS traffic uses
+`rmw_zenoh_cpp`: the container runs a zenoh router on port 7447, and your machine
+runs a second router that connects to it (no multicast, so it works from a
+container or through a NAT too).
 
-| skill | type | C++ | Python | what |
-|---|---|---|---|---|
-| `/skill/replay_motion` | action `motions_skills/ReplayMotion` | yes | yes | plays a recorded move by `name`, from `dataset` (a HuggingFace dataset such as Pollen's `pollen-robotics/reachy-mini-emotions-library`, or a local directory of move JSON files) or one of `extra_datasets`; unknown name -> `ROS_EBADMSG` with the available names in `error_msg` |
-| `/skill/list_motions` | service `motions_skills/ListMotions` | yes | yes | the names `replay_motion` accepts |
-| `/skill/execute_cartesian_trajectory` | action `motions_skills/ExecuteCartesianTrajectory` | yes | no | `moveit_msgs/CartesianTrajectory` for `tracked_frame` `head`, poses in `base_frame` (the head frame sits about 0.177 m above `base_link` at rest, see `/tf`): head poses over time, linearly interpolated, IK by the driver |
-| `/skill/execute_joint_trajectory` | action `motions_skills/ExecuteJointTrajectory` | yes | no | `trajectory_msgs/JointTrajectory` on any of the 9 joints, bypassing the kinematics; `safe_mode` (default true) refuses the `stewart_*` joints, since driving them one by one can strain the platform |
-| `/skill/look_at` | action `interaction_skills/LookAt` | yes | no | `policy` empty: keep the head pointed at `target` (any TF frame, re-evaluated every tick) until a new goal or a cancel; `glance` (the `GLANCE` constant): look for `glance_duration` then come back; `reset`: back to the rest pose. `random`, `social` and `auto` (which need perception) return `ROS_ENOTSUP` |
+Only one process can own the servos and the camera: either the Pollen daemon
+(Pollen's apps, HTTP API, WebRTC) or the ROS driver. The installation lets you
+pick which one starts at boot.
 
-One motion at a time: a new motion goal preempts the running one (which ends with
-`ROS_EINTR`) unless its `meta.priority` is lower, in which case it is rejected. A cancel
-returns `ROS_ECANCELED` and leaves the head where it is. Cartesian motions start with a
-`motion_initial_goto` glide to their first sample so the head never jumps.
+## 1. Installation: turn a Reachy Mini into a ROS robot
 
-The control loop runs at 50 Hz: read the 9 motor positions, publish them and the
-head pose (forward kinematics), evaluate the move or goto in progress, inverse
-kinematics, write the 9 goal positions. On exit the driver goes to the sleep
-pose and releases the motors.
+Everything happens over ssh; nothing is flashed. Allow 20 minutes plus the image
+download.
 
-### TF and the robot model
+### 1.1 What you need
 
-The Stewart platform is a closed kinematic chain whose passive joints are not
-measured, so `robot_state_publisher` alone cannot place the head. The split is:
+* The robot powered, on the same network as your machine, onboarded once with
+  Pollen's app (so it has a hostname and joins the WiFi).
+* Its hostname or IP: `reachy-mini.local` for a single robot, otherwise
+  `reachy-mini-XXXX.local` (mDNS), or the IP shown by the Pollen app or your
+  router.
+* The `pollen` account on the robot, with its password (the one set at
+  onboarding) and `sudo`.
 
-* `robot_state_publisher` (started by `driver.launch.py`, model from
-  `reachy_mini_description`) publishes the fixed frames and the revolute joints
-  it gets from `joint_states`: body yaw, the six motor horns, the two antennas,
-  the camera frames (`camera`, `camera_optical`) attached to the head;
-* the driver broadcasts `base_link -> head` from its forward kinematics and
-  `base_link -> rod_1..6` from the horn tips and the platform anchors, at the
-  loop rate (`publish_tf`, `base_frame` parameters).
-
-`ros2 launch reachy_mini driver.launch.py serial_port:=fake rviz:=true` shows the
-model moving in RViz without a robot.
-
-## On a Reachy Mini: the ROS 2 container
-
-The robot runs Debian, which has no ROS 2 Lyrical binaries, so ROS runs there in
-the Docker image of `docker/` (built by the `robot-image` pipeline job). See
-**[ROBOT_SETUP.md](ROBOT_SETUP.md)** for the step-by-step preparation of an
-off-the-shelf robot: Docker, the image, the systemd units, running the driver
-instead of the Pollen daemon.
-
-## Installation
-
-### From the SocialMinds apt repository (recommended on robots)
+### 1.2 Log in, fix the clock, get this repository
 
 ```sh
-# once: trust the repository (Ubuntu 26.04 / ROS 2 Lyrical)
+ssh pollen@reachy-mini.local
+date -u
+```
+
+The robot has no battery-backed clock, so the date drifts after a long power-off
+and `apt` then refuses the repositories ("Not live until ..."). The clock must
+also agree with your machine's to within 500 ms, otherwise zenoh rejects the
+robot's messages.
+
+The stock NTP servers (the Debian pool) are blocked on some networks, and
+`timesyncd` then never synchronises. Point it at a server that answers, here
+`hora.roa.es` (Spain's official time):
+
+```sh
+# on the robot
+sudo mkdir -p /etc/systemd/timesyncd.conf.d
+printf '[Time]\nNTP=hora.roa.es\nFallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org\n' \
+  | sudo tee /etc/systemd/timesyncd.conf.d/lab.conf
+sudo systemctl restart systemd-timesyncd
+timedatectl | grep synchronized          # must say "yes" after a few seconds
+```
+
+Your own machine's clock must be right too (a container uses its host's clock).
+If no NTP server is reachable at all, copy your machine's clock as a stopgap
+(accurate to about a second only):
+`ssh -t pollen@reachy-mini.local "sudo date -u -s '$(date -u)'"`.
+
+Then clone this repository on the robot; the rest of the installation uses the
+files of its `docker/` directory:
+
+```sh
+git clone https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy-mini-driver.git
+```
+
+### 1.3 Docker, the ROS image and the container
+
+`docker/provision.sh` does all of this section in one go, and the clock setup
+of section 1.2 too (it is idempotent):
+
+```sh
+sudo bash reachy-mini-driver/docker/provision.sh
+```
+
+It pulls the image from the lab's registry if root is logged in to it (install
+Docker and run `sudo docker login gitlab.iiia.csic.es:5005` first), and builds
+it on the robot otherwise (about an hour). The manual steps are below.
+
+**Docker**:
+
+```sh
+sudo apt update
+sudo apt install -y docker.io
+sudo systemctl enable --now docker
+sudo usermod -aG docker pollen          # then log out and in again
+```
+
+**The image**, pulled (minutes; built by this repository's `robot-image`
+pipeline job):
+
+```sh
+docker login gitlab.iiia.csic.es:5005          # your GitLab credentials or a deploy token
+docker pull gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical
+docker tag gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical reachy-mini-ros:lyrical
+```
+
+or built on the robot (about an hour, needs Internet):
+
+```sh
+docker build -t reachy-mini-ros:lyrical reachy-mini-driver/docker/
+```
+
+It contains ROS 2 Lyrical (Ubuntu 26.04), `rmw_zenoh_cpp` with a router
+listening on port 7447, the `reachy_mini` packages of this repository and the
+audio nodes from the lab's apt repository, and Pollen's Python SDK (for the
+optional Python driver).
+
+**The container**, kept running by systemd (`docker/reachy-mini-ros.service`):
+
+```sh
+sudo cp reachy-mini-driver/docker/reachy-mini-ros.service /etc/systemd/system/
+mkdir -p ~/ros
+sudo systemctl daemon-reload
+sudo systemctl enable --now reachy-mini-ros
+```
+
+The unit starts the container with `--network host` (the zenoh router and the
+nodes use the robot's IP; the Pollen daemon's API on `localhost:8000` stays
+reachable), the servo port `/dev/ttyAMA3`, the camera devices (`--privileged`,
+`/run/udev`), PipeWire's socket (`/run/user/1000`), the daemon's cache of the
+emotions library (read-only), and `~/ros` as `/root/ros`, a workspace for
+packages you build from source.
+
+The container only starts nodes when asked to (section 2.1). In it, `ros2` must
+always go through `bash`, which sources ROS:
+`docker exec reachy-mini-ros bash -c "ros2 ..."`, or a shell with
+`docker exec -it reachy-mini-ros bash`.
+
+### 1.4 Audio: PipeWire
+
+The microphones and the speaker go through PipeWire, which Raspberry Pi OS
+already has but only starts when someone logs in. Make it start at boot and give
+it the robot's two audio nodes. They open the card through the same ALSA sharing
+devices as the daemon, so audio works whether the daemon runs or not.
+
+```sh
+sudo loginctl enable-linger pollen
+mkdir -p ~/.config/pipewire/pipewire.conf.d ~/.config/wireplumber/wireplumber.conf.d
+cp reachy-mini-driver/docker/pipewire/reachy-mini-audio.conf ~/.config/pipewire/pipewire.conf.d/
+cp reachy-mini-driver/docker/pipewire/51-reachy-mini.conf ~/.config/wireplumber/wireplumber.conf.d/
+systemctl --user restart pipewire wireplumber pipewire-pulse
+wpctl status      # Sinks: "Reachy Mini speaker", Sources: "Reachy Mini microphones"
+sudo systemctl restart reachy-mini-ros     # so the container sees PipeWire's socket
+```
+
+`51-reachy-mini.conf` keeps WirePlumber off the audio card (PipeWire uses it
+through the sharing devices only) and off the video devices (a PipeWire camera
+monitor would hold the camera).
+
+### 1.5 Choose what owns the robot at boot
+
+**Option A: keep the Pollen daemon as the default.** Nothing more to do. The
+robot boots as Pollen ships it (apps, HTTP API, WebRTC); the ROS container runs
+next to the daemon, and you hand the robot over to ROS when you need it
+(section 2.1). Choose this if the robot is also used with Pollen's tools.
+
+**Option B: make ROS the default.** The robot boots straight into the ROS
+driver (servos, model, camera, audio) and the daemon no longer starts. The
+`docker/reachy-mini-driver-docker.service` unit runs
+`ros2 launch reachy_mini driver.launch.py` in the container; it declares
+`Conflicts=reachy-mini-daemon.service`, so systemd never runs both, and stops the
+driver with SIGINT so that the robot goes to its sleep pose and releases the
+motors.
+
+```sh
+sudo cp reachy-mini-driver/docker/reachy-mini-driver-docker.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl disable reachy-mini-daemon        # otherwise the two race at boot
+sudo systemctl enable --now reachy-mini-driver-docker
+```
+
+What you lose without the daemon: its HTTP API on port 8000, WebRTC and the
+Pollen apps. What you get instead: the whole robot in ROS (`joint_states`, `/tf`
+with the robot model, the camera, the microphones and the speaker, the ROS4HRI
+skills).
+
+To switch from B back to A:
+
+```sh
+sudo systemctl disable --now reachy-mini-driver-docker
+sudo systemctl enable --now reachy-mini-daemon
+```
+
+### 1.6 Updating, and going back to stock
+
+The newest driver packages come with a newer image:
+
+```sh
+docker pull gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical
+docker tag gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical reachy-mini-ros:lyrical
+sudo systemctl restart reachy-mini-ros
+```
+
+`docker exec reachy-mini-ros bash -c "apt update && apt install -y socialminds-ros-lyrical-reachy-mini"`
+updates them in place, but only until the next restart of the container, which
+is started with `--rm`: anything installed by hand in it is lost.
+
+Back to the stock robot: switch to option A (above), then optionally
+`sudo systemctl disable --now reachy-mini-ros` to stop the container. Docker and
+the image can stay; they do not interfere with the daemon.
+
+## 2. Usage
+
+### 2.1 Start ROS on the robot
+
+**Option A (daemon by default)**: stop the daemon, then launch the robot in the
+container:
+
+```sh
+# on the robot
+sudo systemctl stop reachy-mini-daemon
+docker exec -it reachy-mini-ros bash -c "ros2 launch reachy_mini driver.launch.py"
+```
+
+Ctrl-C stops it: the head goes to the sleep pose and the motors are released.
+`sudo systemctl start reachy-mini-daemon` then gives the robot back to Pollen's
+stack.
+
+**Option B (ROS by default)**: the driver already runs.
+`journalctl -u reachy-mini-driver-docker -f` shows its log;
+`sudo systemctl restart reachy-mini-driver-docker` restarts it.
+
+`driver.launch.py` starts the whole robot: the servo driver (C++),
+`robot_state_publisher` with the robot model, the camera and the audio nodes.
+Its arguments: `lang:=python` for the Python driver, `camera:=false`,
+`audio:=false`, `description:=false` to leave parts out, `serial_port:=fake` for a
+simulated servo bus, `params_file:=...` for other driver parameters (see
+REFERENCE.md).
+
+With the daemon running, ROS can still use the audio, and any node can talk to
+the daemon's HTTP API on `localhost:8000`, but neither the servo driver nor the
+camera can start:
+
+```sh
+docker exec -it reachy-mini-ros bash -c "ros2 launch mic_frontend mic_frontend.launch.py"
+docker exec -it reachy-mini-ros bash -c "ros2 launch pw_audio_play pw_audio_play.launch.py"
+```
+
+### 2.2 Connect your machine to the robot (zenoh)
+
+Your machine needs ROS 2 Lyrical with `rmw_zenoh_cpp`, RViz, the
+`ffmpeg_image_transport` plugin (RViz decodes the camera's H.264 with it) and the
+robot's description package (RViz loads the robot's meshes from it). Its clock must be synchronised (section 1.2).
+
+**Natively (Ubuntu 26.04)**, with ROS 2 Lyrical installed:
+
+```sh
+# once: the SocialMinds apt repository
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://socialminds.doc.iiia.csic.es/apt/public.key | gpg --dearmor | sudo tee /etc/apt/keyrings/socialminds.gpg > /dev/null
 echo "deb [signed-by=/etc/apt/keyrings/socialminds.gpg] https://socialminds.doc.iiia.csic.es/apt/ lyrical main" | sudo tee /etc/apt/sources.list.d/socialminds.list
 sudo apt update
-sudo apt install socialminds-ros-lyrical-reachy-mini     # metapackage: both drivers, msgs, launch, systemd unit
+sudo apt install ros-lyrical-rmw-zenoh-cpp ros-lyrical-rviz2 ros-lyrical-ffmpeg-image-transport \
+                 socialminds-ros-lyrical-reachy-mini-description
 ```
 
-The Python driver additionally needs the `reachy-mini` pip package (Pollen's SDK,
-which contains the motor-controller and kinematics wheels and the move loader)
-importable by the same interpreter as `rclpy`. On Ubuntu 26.04 (Python 3.14) the
-SDK's pinned `pygobject` does not install; use the distro's `python3-gi` and
-install the SDK without that dependency:
+The full metapackage, `socialminds-ros-lyrical-reachy-mini`, is not needed on
+your machine: it only adds the drivers.
+
+**In a Docker container** (any Linux host), with the host's display for RViz:
 
 ```sh
-sudo apt install python3-pip python3-gi python3-gst-1.0 gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0
-python3 -m pip install --break-system-packages --no-deps reachy-mini
-python3 -m pip install --break-system-packages $(python3 -c "import importlib.metadata as m; from packaging.requirements import Requirement; print(' '.join(str(r.name)+str(r.specifier) for r in map(Requirement, m.requires('reachy-mini')) if (not r.marker or r.marker.evaluate({'extra': ''})) and r.name.lower() != 'pygobject'))")
+xhost +local:docker                    # once per session: let the container open windows
+docker run -it --name ros-lyrical --network host \
+    -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \
+    ros:lyrical bash
+# then, inside: apt update && apt install -y curl gnupg,
+# and the same apt commands as above (without sudo)
 ```
 
-### From source
+`--network host` is the simplest; the container then shares the host's port 7447,
+so do not also run a zenoh router on the host. `docker start -ai ros-lyrical`
+gets back into it later with the packages still installed. On a GPU-less setup,
+`-e LIBGL_ALWAYS_SOFTWARE=1` helps RViz start.
+
+**Then, in every terminal** (native or in the container), set the middleware and,
+once per machine, start a zenoh router that connects to the robot's:
 
 ```sh
-cd ~/ros2_ws/src && git clone https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy-mini-driver.git
-cd ~/ros2_ws
-rosdep install --from-paths src --ignore-src -y     # cargo, rustc, eigen, nlohmann-json, yaml-cpp, ...
-colcon build
-colcon test && colcon test-result --verbose
-source install/setup.bash
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+ZENOH_CONFIG_OVERRIDE='connect/endpoints=["tcp/<robot IP>:7447"]' ros2 run rmw_zenoh_cpp rmw_zenohd &
+ros2 node list
 ```
 
-## Running
+Use the robot's IP rather than its `.local` name wherever mDNS does not resolve
+(containers usually cannot). The router is needed once per machine (or
+container), but `RMW_IMPLEMENTATION` must be set in every terminal: a `ros2`
+command without it uses the default middleware and sees nothing of the robot.
+
+**Tip.** This function, added to your `~/.bashrc`, does both: the first call
+starts the router (after checking that the robot answers), later calls in other
+terminals only set `RMW_IMPLEMENTATION`.
 
 ```sh
-# without hardware: an ideal simulated bus
-ros2 run reachy_mini_driver driver_node --ros-args -p serial_port:=fake
-# on the robot (Pollen daemon stopped, see below): servos, model, camera, audio
-ros2 launch reachy_mini driver.launch.py                    # C++ driver (default)
-ros2 launch reachy_mini driver.launch.py lang:=python       # Python driver
-
-ros2 topic echo /joint_states
-ros2 service call /skill/list_motions motions_skills/srv/ListMotions
-ros2 action send_goal /skill/replay_motion motions_skills/action/ReplayMotion "{name: cheerful1}"
-ros2 action send_goal /skill/look_at interaction_skills/action/LookAt \
-    "{policy: glance, target: {header: {frame_id: base_link}, point: {x: 1.0, y: 0.5, z: 0.3}}}"
+# Set up this terminal to talk to the Reachy Mini over zenoh.
+# Usage: zenoh_reachy [robot IP]   (default: $REACHY_IP)
+zenoh_reachy() {
+  local ip="${1:-$REACHY_IP}"
+  local log=/tmp/rmw_zenohd.log
+  export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+  if (: </dev/tcp/127.0.0.1/7447) 2>/dev/null; then
+    echo "zenoh router already running (log: $log)"
+    return 0
+  fi
+  if [ -z "$ip" ]; then
+    echo "usage: zenoh_reachy <robot IP>   (or set REACHY_IP)"
+    return 1
+  fi
+  if ! timeout 2 bash -c ": </dev/tcp/$ip/7447" 2>/dev/null; then
+    echo "ERROR: no zenoh router at $ip:7447 (wrong IP? robot container down?)"
+    return 1
+  fi
+  # in a subshell: detached from this terminal, and no job-control noise
+  (ZENOH_CONFIG_OVERRIDE="connect/endpoints=[\"tcp/$ip:7447\"]" \
+    setsid ros2 run rmw_zenoh_cpp rmw_zenohd >"$log" 2>&1 </dev/null &)
+  local i
+  for i in $(seq 20); do
+    if (: </dev/tcp/127.0.0.1/7447) 2>/dev/null; then
+      ros2 daemon stop >/dev/null 2>&1   # a daemon started with another RMW would be stale
+      echo "zenoh router started, connected to $ip (log: $log)"
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "ERROR: zenoh router did not start, see $log:"
+  tail -5 "$log"
+  return 1
+}
 ```
 
-`driver.launch.py` starts the whole robot: the servo driver, `robot_state_publisher`
-with the robot model, the camera and the audio (see "Camera and audio"). It takes
-`lang` (`cpp`, the default, or `python`), `serial_port` and `params_file` for the
-driver (the default parameter file is `reachy_mini/config/driver.yaml`, installed
-under `share/reachy_mini/config/`), and `camera`, `audio`, `description` and
-`rviz` to turn the rest on or off (all on except `rviz`).
+The router keeps running when its terminal closes. If it was started with the
+wrong IP, `pkill rmw_zenohd` and call `zenoh_reachy <robot IP>` again.
 
-## On the robot: stop the Pollen daemon first
-
-Only one process can own the servo bus (`/dev/ttyAMA3`). The Pollen daemon
-(`reachy-mini-daemon`, started at boot) holds it, so the driver cannot open the
-port while the daemon runs, and vice versa. On the robot (user `pollen`):
+### 2.3 RViz
 
 ```sh
-sudo systemctl stop reachy-mini-daemon       # until the next boot
-sudo systemctl disable reachy-mini-daemon    # also at boot, if the driver becomes permanent
-# ... run the driver ...
-sudo systemctl start reachy-mini-daemon      # give the robot back to Pollen's stack
+zenoh_reachy <robot IP>        # or the two commands above
+rviz2 -d $(ros2 pkg prefix reachy_mini_description)/share/reachy_mini_description/rviz/reachy_mini.rviz
 ```
 
-Stopping the daemon also stops what it provides: its HTTP API on port 8000,
-WebRTC and the Pollen apps (camera and sound are available in ROS instead, see
-"Camera and audio"). The driver puts the robot to sleep and
-releases the motors when it exits (`sleep_on_shutdown`, default true), so the
-daemon can take over again cleanly.
+The configuration shows the robot model (from `/robot_description`), the TF
+frames and the camera image (`/camera/image_raw/ffmpeg`). The camera starts when
+RViz subscribes to it, so the image appears after a second or two.
 
-## Running the driver as a service
+### 2.4 Your own nodes
 
-The `reachy_mini` metapackage ships a systemd unit,
-`share/reachy_mini/systemd/reachy-mini-driver.service`, which runs
-`ros2 launch reachy_mini driver.launch.py` (the C++ driver). It declares
-`Conflicts=reachy-mini-daemon.service`, so systemd never runs the driver and the
-daemon at the same time, and it stops the driver with SIGINT so the sleep
-sequence runs.
+Nodes on your machine see the robot's topics, services and actions as if they
+were local, as long as they run with `RMW_IMPLEMENTATION=rmw_zenoh_cpp` next to
+the router. The driver's interface (topics, the ROS4HRI skills, TF frames) and
+the camera and audio topics are listed in [REFERENCE.md](REFERENCE.md).
+
+Nodes that must run on the robot (raw camera frames, low latency) go in the
+container: build them in `~/ros` on the robot (`/root/ros` in the container,
+which sources `/root/ros/install/setup.bash` when it exists):
 
 ```sh
-sudo cp $(ros2 pkg prefix reachy_mini)/share/reachy_mini/systemd/reachy-mini-driver.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl disable reachy-mini-daemon        # do not race with the daemon at boot
-sudo systemctl enable --now reachy-mini-driver
-systemctl status reachy-mini-driver
-journalctl -u reachy-mini-driver -f
+docker exec -it reachy-mini-ros bash
+cd /root/ros && colcon build
 ```
 
-The unit assumes a native ROS 2 Lyrical installation in `/opt/ros/lyrical` and
-the `pollen` user (member of `dialout` for the serial port). Edit `ExecStart` to
-add `lang:=python` for the Python driver or `params_file:=...` for other parameters, or,
-if ROS runs in a container on the robot, to wrap the command with
-`docker exec <container> ...`.
+## 3. Tests: is everything working?
 
-To go back to the Pollen stack: `sudo systemctl disable --now reachy-mini-driver
-&& sudo systemctl enable --now reachy-mini-daemon`.
+From your machine, in a terminal set up as in section 2.2, with ROS started on
+the robot (section 2.1). Each check names what to look at if it fails
+([Troubleshooting](#troubleshooting)).
 
-## Camera and audio
-
-The Pollen daemon owns the camera and the audio card while it runs. Without it
-(or next to it, for the audio), ROS gets them as follows; `ROBOT_SETUP.md`
-(step 7) prepares the robot.
-
-### Camera: `reachy_mini_camera_driver`
-
-Node `camera`, executable `camera_node`, started by `driver.launch.py`, or on its
-own by `ros2 launch reachy_mini_camera_driver camera.launch.py` (namespace `/camera`). A GStreamer pipeline
-does all the work off the ROS thread: libcamera (the ISP scales and converts),
-a tee, the Raspberry Pi's hardware H.264 encoder on one branch, raw frames on
-the other. Only what has subscribers costs anything: each branch is shut by a
-valve while nobody listens, and with `lazy` (the default) the camera itself
-stops 5 s after the last subscriber leaves.
-
-| | |
-|---|---|
-| publishes | `image_raw/ffmpeg` (`ffmpeg_image_transport_msgs/FFMPEGPacket`, H.264): subscribe with the `ffmpeg` image transport to get `sensor_msgs/Image`s, e.g. `ros2 run image_transport republish --ros-args -p in_transport:=ffmpeg -p out_transport:=raw -r in/ffmpeg:=/camera/image_raw/ffmpeg -r out:=/camera/image`; `image_raw/h264` (`foxglove_msgs/CompressedVideo`) for Foxglove; `image_raw` (`sensor_msgs/Image`, `yuv422_yuy2`, uncompressed: meant for nodes on the robot); `camera_info` |
-| stream parameters (dynamic; a change restarts the camera, about a second) | `width`, `height` (1280x720; the sensor is 16:9 and the hardware encoder stops at 1920x1080), `framerate` (30), `bitrate` (2 Mbit/s: the compression level), `keyframe_interval` (60 frames), `h264_profile` (`high`, `main` or `baseline`) |
-| image parameters (dynamic, applied live) | `autofocus_mode` (`continuous`, `auto`, `manual`), `lens_position` (dioptres, for `manual`), `exposure_value` (EV) |
-| other parameters | `lazy` (true), `frame_id` (`camera_optical`, the URDF's optical frame), `camera_info_url` (a `camera_calibration` result; none is shipped, the daemon's calibration being for another camera), `source` (`libcamera`, `v4l2:<device>` or `test`) and `encoder` (`v4l2h264enc`, or `x264enc` / `openh264enc` to develop on a PC) |
-
-Timestamps are the capture time (sensor timestamp from libcamera, in system
-time). A new subscriber to the H.264 topics triggers a keyframe, so it does not
-wait for the next one; SPS/PPS are repeated before every keyframe.
-
-Each `ros2 param set` of a stream parameter restarts the camera. To change
-several at once with a single restart, load them together:
-
-```sh
-cat > /tmp/1080p.yaml <<EOF
-/camera/camera:
-  ros__parameters: {width: 1920, height: 1080, bitrate: 4000000}
-EOF
-ros2 param load /camera/camera /tmp/1080p.yaml
-```
-
-Cost on the CM4 (one core = 100 %): 8 % at 720p30, 10 % at 1080p30. The
-encoder reads libcamera's buffers in place, and most of that is libcamera's
-own control loop (exposure, white balance, focus). A subscriber to the raw
-`image_raw` adds about 30 % (copy and serialisation of the raw frames).
-
-Without a robot: `ros2 run reachy_mini_camera_driver camera_node --ros-args -p source:=test -p encoder:=x264enc`.
-
-To watch it from a laptop, with the robot model and TF:
-`rviz2 -d $(ros2 pkg prefix reachy_mini)/share/reachy_mini/rviz/reachy_mini.rviz`
-(the config `driver.launch.py rviz:=true` opens). The laptop needs
-`ros-lyrical-ffmpeg-image-transport` for RViz to decode the H.264.
-
-### Audio: `mic_frontend` and `pw_audio_play`
-
-Audio goes through PipeWire, with two nodes that live in their own
-repositories, both started by `driver.launch.py`:
-
-| node | | |
+| check | command | expected |
 |---|---|---|
-| `mic_frontend` | publishes | `/audio/head/raw` (`audio_common_msgs/AudioData`, 16 kHz mono S16LE, 10 ms chunks), `/audio/head/info`, `/audio/head/voice_detected` (`std_msgs/Bool`) |
-| `pw_audio_play` | plays | `/audio/out` (`audio_common_msgs/AudioData`, in the format given on `/audio/out/info`); `/pw_audio_play/stop`, `/pw_audio_play/is_playing` |
+| the robot's router answers | `nc -vz <robot IP> 7447` | "succeeded" / "open" |
+| the graph is visible | `ros2 node list` | `/reachy_mini_driver`, `/robot_state_publisher`, `/camera/camera`, the audio nodes |
+| servos | `ros2 topic hz /joint_states` | about 50 Hz |
+| kinematics and TF | `ros2 run tf2_ros tf2_echo base_link head` | the head about 0.18 m above `base_link` |
+| motion skills | `ros2 service call /skill/list_motions motions_skills/srv/ListMotions` | the names of the emotions library |
+| | `ros2 action send_goal /skill/replay_motion motions_skills/action/ReplayMotion "{name: cheerful1}"` | the robot plays the move; the goal succeeds |
+| | `ros2 action send_goal /skill/look_at interaction_skills/action/LookAt "{policy: glance, target: {header: {frame_id: base_link}, point: {x: 1.0, y: 0.5, z: 0.3}}}"` | the head glances to its left for 2 s and comes back |
+| camera | `ros2 topic hz /camera/image_raw/ffmpeg` | about 30 Hz (after a second: the camera starts on the first subscriber) |
+| microphones | `ros2 topic hz /audio/head/raw` | about 100 Hz (10 ms chunks) |
+| | `ros2 topic echo /audio/head/voice_detected` | `true` while someone speaks near the robot |
+| everything together | RViz, section 2.3 | the model moves with the robot, the camera image shows |
 
-On the robot, `docker/pipewire/` creates two PipeWire nodes over the audio card,
-`reachy_mini_mic` and `reachy_mini_speaker`, through the same ALSA sharing
-devices as the daemon, so they work whether the daemon runs or not.
+The motion checks move the robot: make sure it has room.
 
-The card is an XMOS XVF3800: 16 kHz stereo only, and both capture channels
-carry the same processed stream (4-mic beamforming, noise suppression, echo
-cancellation against whatever the card plays). mic_frontend therefore needs
-neither `aec` nor, usually, `rnnoise`: it runs `highpass,vad` on one channel.
-These settings are in `reachy_mini/config/mic_frontend/` and
-`reachy_mini/config/pw_audio_play/`; the `reachy_mini` package registers them
-with launch_pal, which merges them over the nodes' own defaults whenever their
-launch files run. Override them with a file in `~/.pal/config/`.
+On the robot itself, `systemctl status reachy-mini-ros` (and
+`reachy-mini-driver-docker` in option B) must say "active (running)",
+`docker exec reachy-mini-ros bash -c "ros2 pkg list" | grep reachy_mini` must list
+the packages, and `wpctl status` must list the Reachy Mini speaker and
+microphones.
 
-## Design
+**Without a robot**, on your machine, the whole stack runs on a simulated servo
+bus. In a terminal without the zenoh setup of section 2.2 (or with a local
+router: `ros2 run rmw_zenoh_cpp rmw_zenohd &`):
 
-`DESIGN.md` explains where the design comes from: what the Pollen daemon does every
-20 ms, the conventions inherited from the SDK, and how they shaped the ROS driver,
-its skills, its TF frames and its tests.
+```sh
+ros2 launch reachy_mini driver.launch.py serial_port:=fake camera:=false audio:=false rviz:=true
+```
 
-## Development
+RViz shows the model; the skills above work and move it.
 
-`tools/check_reachy_mini_c_against_sdk.py` compares the C library's kinematics
-with the Python SDK's (they agree to 1e-13 rad); it needs the SDK installed.
-Both drivers have unit tests that run on the fake bus (`colcon test`); the C++
-driver's tests are gtest, the Python driver's are pytest. The Python driver is a
-reference implementation limited to `replay_motion` and `list_motions`; the C++ driver
-(the one `reachy_mini` installs) has the full skill set.
+**Unit tests**, from source (see REFERENCE.md for the build): the drivers'
+tests run on the fake bus.
+
+```sh
+colcon test && colcon test-result --verbose
+```
+
+## Troubleshooting
+
+`apt` says "Not live until ..." or signature errors
+: The clock. Section 1.2.
+
+zenoh logs "incoming timestamp ... exceeding delta 500ms is rejected"
+: The robot's and your machine's clocks differ by more than 500 ms. Check
+  `timedatectl | grep synchronized` on both and set up NTP as in section 1.2.
+
+`docker pull` says "unauthorized"
+: The registry needs a login (section 1.3); or build the image on the robot.
+
+Your machine sees no nodes
+: Router not connected: check `ZENOH_CONFIG_OVERRIDE` and that TCP 7447 is
+  reachable (`nc -vz <robot IP> 7447`); both sides must use `rmw_zenoh_cpp`.
+  The router's startup log does not say whether the connection succeeded, so a
+  wrong IP goes unnoticed (`zenoh_reachy` checks it).
+
+`ros2 action send_goal` stays at "Waiting for an action server to become available..." (or `ros2 node list` is empty) in one terminal but not in another
+: `RMW_IMPLEMENTATION` is not set in that terminal, so `ros2` uses the default
+  middleware. `export RMW_IMPLEMENTATION=rmw_zenoh_cpp` (or `zenoh_reachy`),
+  then `ros2 daemon stop` so that a daemon started without it is not reused.
+
+RViz shows the robot model in white, or no model
+: `socialminds-ros-lyrical-reachy-mini-description` is not installed on your machine (RViz resolves
+  the meshes' `package://` paths locally), or `robot_state_publisher` is not
+  running on the robot (`description:=false`).
+
+RViz shows no camera image
+: `ros-lyrical-ffmpeg-image-transport` is missing on your machine, or the camera
+  driver is not running (see below).
+
+The driver logs "cannot open /dev/ttyAMA3"
+: The Pollen daemon still owns the port: `sudo systemctl stop reachy-mini-daemon`.
+  `sudo fuser /dev/ttyAMA3` shows who has it.
+
+The camera driver logs "cannot start the camera" and retries
+: Another process has the camera, usually the Pollen daemon:
+  `sudo systemctl stop reachy-mini-daemon`. If `rpicam-hello --list-cameras` lists
+  no camera even then, check the kernel: `dmesg | grep imx708` must not show
+  "failed to read chip id" for the camera's port (a loose or reversed CSI ribbon
+  gives exactly that; the other port always fails, there being one camera).
+
+`wpctl status` lists no Reachy Mini source or sink
+: The configuration files of section 1.4 are missing, or PipeWire was not
+  restarted after copying them. `journalctl --user -u pipewire` says why a node
+  failed to open.
+
+mic_frontend or pw_audio_play: "cannot connect to the PipeWire daemon"
+: PipeWire is not running (`loginctl show-user pollen | grep Linger` must say
+  yes), or the container was started without `/run/user/1000` (reinstall
+  `docker/reachy-mini-ros.service` from this repository).
+
+`docker exec reachy-mini-ros ros2 ...` says "executable file not found in $PATH"
+: `docker exec` runs the command without a shell and skips the entrypoint, so
+  ROS is not sourced. Go through bash, which the image sets up to source ROS
+  even when non-interactive: `docker exec reachy-mini-ros bash -c "ros2 ..."`.
+
+## Packages
+
+| package | what |
+|---|---|
+| `reachy_mini` | Metapackage: depends on all of the below and on the audio nodes (`mic_frontend`, `pw_audio_play`); ships `driver.launch.py`, the parameter files and a systemd unit for native installations. Install this one. |
+| `reachy_mini_driver_cpp` | The servo driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json): the one `driver.launch.py` starts by default. |
+| `reachy_mini_driver` | The same driver in Python (uses Pollen's Python wheels), a reference implementation limited to `replay_motion` and `list_motions`. |
+| `reachy_mini_c` | C library (Rust inside, built by cargo) over Pollen's motor-controller and kinematics crates. See its `VENDORING.md`. |
+| `reachy_mini_msgs` | Interfaces: `msg/AntennasTarget`. |
+| `reachy_mini_camera_driver` | The camera (IMX708 wide, CSI) through libcamera, H.264 from the Pi's hardware encoder. |
+| `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured for `robot_state_publisher`, and the RViz configuration (model, TF, camera). |
+| `docker/` | The robot's ROS 2 container image, its systemd units, the PipeWire configuration and `provision.sh` (not a ROS package). |

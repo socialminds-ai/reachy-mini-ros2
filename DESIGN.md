@@ -2,9 +2,9 @@
 
 This document explains why the driver exists, what it borrows from Pollen Robotics'
 daemon and SDK, and how those borrowings shaped the ROS 2 packages of this repository.
-It is written for someone who wants to modify the driver. The user-facing description
-(packages, parameters, topics, installation) is in `README.md`; this document is about
-the reasons.
+It is written for someone who wants to modify the driver. The user-facing documentation
+is in `README.md` (installation, usage, tests) and `REFERENCE.md` (packages, parameters,
+topics); this document is about the reasons.
 
 ## 1. Why a bare-metal driver
 
@@ -353,7 +353,7 @@ one with `lang:=cpp|python`. The Python driver imports the SDK's wheels
 `reachy_mini.motion.recorded_move`) and reads `reachy_mini/assets/kinematics_data.json`
 through `importlib.resources` (`geometry.py`). It is the shortest path to a working
 driver, but the `reachy-mini` pip package must be importable by the interpreter that runs
-`rclpy`, which on Ubuntu 26.04 means installing it by hand (README); the `reachy_mini`
+`rclpy`, which on Ubuntu 26.04 means installing it by hand (REFERENCE.md); the `reachy_mini`
 metapackage depends only on the C++ driver.
 
 The C++ driver cannot use Python wheels, hence `reachy_mini_c`: a C ABI implemented in
