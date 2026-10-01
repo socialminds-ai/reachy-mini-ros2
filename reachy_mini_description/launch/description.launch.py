@@ -16,7 +16,8 @@ Publish the robot description and the fixed/revolute transforms of the Reachy Mi
 
 robot_state_publisher reads joint_states (body_yaw, stewart_1..6, right_antenna,
 left_antenna) from the driver; the floating links (head, rod_1..6) are
-broadcast by the driver itself. Add rviz:=true to open RViz.
+broadcast by the driver itself. Add rviz:=true to open RViz (rviz/reachy_mini.rviz:
+the model, TF and the camera image).
 """
 
 import os

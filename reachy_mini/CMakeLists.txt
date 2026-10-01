@@ -16,4 +16,4 @@ ament_index_register_resource(pal_configuration.mic_frontend
 ament_index_register_resource(pal_configuration.pw_audio_play
   CONTENT config/pw_audio_play/10-reachy-mini.yml)
 
-ament_auto_package(INSTALL_TO_SHARE launch config rviz systemd)
+ament_auto_package(INSTALL_TO_SHARE launch config systemd)

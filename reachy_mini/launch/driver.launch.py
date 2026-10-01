@@ -72,7 +72,7 @@ def generate_launch_description():
             package='rviz2',
             executable='rviz2',
             name='rviz2',
-            arguments=['-d', os.path.join(get_package_share_directory('reachy_mini'),
+            arguments=['-d', os.path.join(get_package_share_directory('reachy_mini_description'),
                                           'rviz', 'reachy_mini.rviz')],
             condition=IfCondition(LaunchConfiguration('rviz')),
         ),
