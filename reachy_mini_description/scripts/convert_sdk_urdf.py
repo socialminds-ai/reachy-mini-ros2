@@ -132,6 +132,11 @@ def main(sdk_urdf_dir, package_dir):
     ET.SubElement(j, 'child', link='body_foot_3dprint')
     joints['yaw_body'].set('name', 'body_yaw')
 
+    # 3b. the antenna axes are reversed in the SDK model (its MuJoCo backend negates the
+    #     antenna commands): flip them so that joint_states stay in the motors' convention
+    for n in ('right_antenna', 'left_antenna'):
+        joints[n].find('axis').set('xyz', '0 0 -1')
+
     # 4. rods: six identical floating links, mesh centred along +x
     for i in range(1, 7):
         link = ET.SubElement(root, 'link', name=f'rod_{i}')

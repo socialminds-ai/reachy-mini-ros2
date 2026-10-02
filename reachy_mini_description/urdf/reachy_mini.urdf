@@ -300,7 +300,7 @@
     <origin xyz="-0.0948524 0.0197779 -0.00445785" rpy="1.63922 1.39152 0.701924" />
     <parent link="xl_330" />
     <child link="dc15_a01_horn_dummy_7" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit effort="10" velocity="8" lower="-3.141592653589793" upper="3.141592653589793" />
   </joint>
   <link name="dc15_a01_horn_dummy_8">
@@ -323,7 +323,7 @@
     <origin xyz="-0.0764135 -0.0324475 0.0840224" rpy="2.93649 0.508471 2.10225" />
     <parent link="xl_330" />
     <child link="dc15_a01_horn_dummy_8" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit effort="10" velocity="8" lower="-3.141592653589793" upper="3.141592653589793" />
   </joint>
   <joint name="stewart_6" type="revolute">
