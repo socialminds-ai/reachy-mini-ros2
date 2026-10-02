@@ -4,6 +4,8 @@ Changelog for package reachy_mini
 
 Forthcoming
 -----------
+* update changelogs
+* Contributors: Séverin Lemaignan
 
 0.7.0 (2026-10-01)
 ------------------
