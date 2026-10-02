@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.8.0 (2026-10-02)
+------------------
 * update changelogs
 * Contributors: Séverin Lemaignan
 

@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.8.0 (2026-10-02)
+------------------
 * C++ driver: speed limits, smooth gotos, joint trajectories from the current position
   The commanded pose now follows the targets at bounded speed (MotionLimiter,
   limits.hpp): smooth limits with an acceleration ramp for look_at and the
