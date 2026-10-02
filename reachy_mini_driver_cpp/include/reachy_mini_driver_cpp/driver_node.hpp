@@ -50,6 +50,7 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "reachy_mini_driver_cpp/bus.hpp"
 #include "reachy_mini_driver_cpp/kinematics.hpp"
+#include "reachy_mini_driver_cpp/limits.hpp"
 #include "reachy_mini_driver_cpp/moves.hpp"
 #include "reachy_mini_driver_cpp/trajectories.hpp"
 #include "reachy_mini_msgs/msg/antennas_target.hpp"
@@ -79,8 +80,12 @@ public:
     const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
   ~DriverNode() override;
 
-  /// Smoothly move to a head pose and antenna positions.
-  void gotoPose(const Pose & head, const std::array<double, 2> & antennas, double duration);
+  /// Smoothly move to a head pose, antenna positions and (if given) body yaw, in
+  /// `duration` seconds or longer if the smooth speed limits need it; returns the
+  /// duration actually used.
+  double gotoPose(
+    const Pose & head, const std::array<double, 2> & antennas, double duration,
+    std::optional<double> body_yaw = std::nullopt);
   /// Go to the sleep pose and release the motors (call before destroying).
   void shutdown();
 
@@ -91,6 +96,7 @@ private:
   {
     Pose start_pose, end_pose;
     std::array<double, 2> start_ant, end_ant;
+    double start_yaw, end_yaw;
     double duration;
     std::chrono::steady_clock::time_point t0;
   };
@@ -119,7 +125,12 @@ private:
   };
 
   void tick();
-  std::optional<Positions> computeGoals();
+  std::optional<Positions> computeGoals(const Command & command);
+  /// Start a goto from the current targets (call under mutex_); returns its duration.
+  double startGoto(
+    const Pose & head, const std::array<double, 2> & antennas, double body_yaw,
+    double duration);
+  Command targets() const {return Command{target_pose_, target_antennas_, target_body_yaw_};}
   void applyGaze();
   /// Start `motion` in the motion slot (preempting the current one); returns the execution.
   std::shared_ptr<Execution> startMotion(
@@ -163,6 +174,13 @@ private:
   std::optional<Gaze> gaze_;
   double glance_duration_{2.0};
   double motion_initial_goto_{0.5};
+  /// The commanded pose follows the targets within `smooth_limits_` (gaze, topics,
+  /// gotos are planned within them) or, while a motion plays, `safety_limits_`.
+  MotionLimiter limiter_;
+  bool limiter_stale_{false};   ///< joint goals were written directly: resync first
+  Limits smooth_limits_{};
+  Limits safety_limits_{};
+  std::chrono::steady_clock::time_point last_tick_{};
 
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;

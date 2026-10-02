@@ -15,7 +15,7 @@ find_package(nlohmann_json REQUIRED)
 
 # hardware-independent logic (bus interface, kinematics wrapper, recorded moves)
 ament_auto_add_library(${PROJECT_NAME}_lib SHARED
-  src/bus.cpp src/kinematics.cpp src/moves.cpp src/trajectories.cpp)
+  src/bus.cpp src/kinematics.cpp src/limits.cpp src/moves.cpp src/trajectories.cpp)
 target_link_libraries(${PROJECT_NAME}_lib Eigen3::Eigen nlohmann_json::nlohmann_json)
 
 # the node
@@ -32,6 +32,9 @@ if(BUILD_TESTING)
   ament_add_gtest(test_moves test/test_moves.cpp)
   target_link_libraries(test_moves ${PROJECT_NAME}_lib)
   target_compile_definitions(test_moves PRIVATE TEST_MOVES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test/moves")
+
+  ament_add_gtest(test_limits test/test_limits.cpp)
+  target_link_libraries(test_limits ${PROJECT_NAME}_lib)
 
   ament_add_gtest(test_driver test/test_driver.cpp)
   target_link_libraries(test_driver ${PROJECT_NAME}_node)

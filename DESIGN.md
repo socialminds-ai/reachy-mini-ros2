@@ -245,13 +245,16 @@ sample, which is simpler to test. In order:
    * else if a goto is in progress, interpolate start to end with `a = min(1, (now -
      t0) / duration)` and clear it when `a >= 1`;
    * else keep the last targets set by the topic callbacks.
-4. `_compute_goals()` / `computeGoals()`: `kinematics.ik(target_pose, target_body_yaw)`
-   gives seven joints; append the two antenna targets. An unreachable pose gives `None`
+4. (C++) The speed limiter (`MotionLimiter`, see *Speed limits* below) moves the
+   commanded pose, antennas and body yaw toward those targets by what the limits allow
+   in one tick.
+5. `_compute_goals()` / `computeGoals()`: `kinematics.ik(pose, body_yaw)` on the
+   commanded pose (the targets in Python) gives seven joints; append the two antennas. An unreachable pose gives `None`
    / `std::nullopt` and a throttled warning; nothing is written that tick, so the robot
    holds its last goal.
-5. Publish `joint_states` (nine names, nine positions), `~/head_pose` (a `PoseStamped` in
+6. Publish `joint_states` (nine names, nine positions), `~/head_pose` (a `PoseStamped` in
    `base_frame`), and the seven TF transforms of section 5.
-6. `bus.write_goal_positions(goals)`, again with a throttled warning on failure.
+7. `bus.write_goal_positions(goals)`, again with a throttled warning on failure.
 
 IK runs every tick, not only when a target changed as in the daemon: the analytical
 solver is cheap and this removes a flag. Constructors do the daemon's cold start: read
@@ -287,7 +290,8 @@ callback in C++). That thread never touches the bus:
    its thread returns `ROS_EINTR`;
 3. if `motion_initial_goto > 0` and the motion has a head pose,
    `goto(first_pose, first_antennas, duration)` and a sleep of that length, so the loop
-   glides to the first sample (the slot is reserved, but not *started*, during that
+   glides to the first sample (in C++ the goto also brings the body yaw, and lasts
+   longer than `motion_initial_goto` when the distance needs it, see *Speed limits*) (the slot is reserved, but not *started*, during that
    glide: the loop keeps running the goto);
 4. start the clock, then only wait: every 50-100 ms publish feedback and check for a
    cancel request; on cancel set the flag, wait for the loop to acknowledge, return
@@ -321,6 +325,35 @@ it does not interrupt a move, since the loop overwrites the targets from the mov
 tick until it ends. Topics rather than services because a tracking node publishes
 continuously and wants no round trip per sample, like `ReachyMini.set_target()` in the
 SDK.
+
+### Speed limits
+
+The servos follow their goal positions as fast as they can, so any discontinuity in the
+targets becomes a jerk of the head: a `look_at` target or a topic sample far from the
+current pose, the fixed 0.5 s glide from the sleep pose to a move's first sample, a
+joint trajectory whose first point is not where the joints are, or the few recorded
+moves whose samples jump within milliseconds (`wake-mini-up` has steps of 10 to 20
+degrees 1 to 17 ms apart). The C++ driver therefore puts a limiter between the targets
+and the IK (`limits.hpp`, in the hardware-independent library and unit-tested there):
+
+* the commanded head pose moves toward the target pose in a straight line and turns
+  about the axis of the remaining rotation; antennas and body yaw move independently;
+* each of these quantities has a speed limit and an acceleration limit, and slows down
+  so as to stop on the target (a bang-bang profile on the speed: `v = min(v_max,
+  v_prev + a dt, sqrt(2 a d))` for a remaining distance `d`); the target may move at
+  every tick, which is what `look_at` tracking needs;
+* two sets of limits: *smooth* ones (`max_speed.*`, `max_acceleration.*`) when the
+  target is reactive (gaze, topics), and *safety* caps (`safety_max_speed.*`, speed
+  only) while a motion plays, so that authored motions keep their timing. The caps were
+  chosen from the emotions library: 99.9 % of its head rotation speeds are under 8 rad/s,
+  and the regularly sampled fast moves (`dying1`) stay under 10 rad/s;
+* gotos are planned within the smooth limits rather than limited: their duration is at
+  least 1.5 times distance over speed (the peak speed of the smoothstep easing they now
+  use), and the loop applies only the safety caps during them;
+* joint trajectories bypass the limiter (they write joint goals), so they start from the
+  current goals, and their antenna and body-yaw joints are clamped to the safety caps.
+
+The Python driver has none of this yet.
 
 ### Wake-up, sleep, and why SIGINT is the stop signal
 
@@ -483,6 +516,9 @@ environment; `colcon test` runs them all in a `ros:lyrical` container.
 * **Passive joints not published.** The platform's ball joints are absent from the
   model; only the head and the rods are placed, from FK and geometry. Enough for RViz
   and for `camera` in TF, not for a collision model of the platform.
+* **No speed limits in Python.** The limiter of the C++ driver (section 4, *Speed
+  limits*) has no Python counterpart: the Python driver still writes its targets as
+  they come.
 * **Unreachable targets are silent.** They are dropped with a throttled warning and the
   robot holds its last goal; a caller learns nothing but the log. A service that
   validates a pose would help behaviour nodes.

@@ -17,11 +17,13 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -132,6 +134,22 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   declare_parameter("skills_namespace", "/skill");
   declare_parameter("glance_duration", 2.0);
   declare_parameter("motion_initial_goto", 0.5);
+  // speed limits: smooth ones for reactive targets and gotos, safety caps during motions
+  auto declare_limit = [this](const std::string & part, double velocity, double acceleration,
+    double safety) {
+      return std::make_pair(
+        SpeedLimit{declare_parameter("max_speed." + part, velocity),
+          declare_parameter("max_acceleration." + part, acceleration)},
+        SpeedLimit{declare_parameter("safety_max_speed." + part, safety)});
+    };
+  std::tie(smooth_limits_.head_rotation, safety_limits_.head_rotation) =
+    declare_limit("head_rotation", 1.5, 6.0, 10.0);           // rad/s, rad/s², rad/s
+  std::tie(smooth_limits_.head_translation, safety_limits_.head_translation) =
+    declare_limit("head_translation", 0.1, 0.5, 0.5);         // m/s, m/s², m/s
+  std::tie(smooth_limits_.antennas, safety_limits_.antennas) =
+    declare_limit("antennas", 4.0, 20.0, 15.0);               // rad/s, rad/s², rad/s
+  std::tie(smooth_limits_.body_yaw, safety_limits_.body_yaw) =
+    declare_limit("body_yaw", 1.5, 6.0, 4.0);                 // rad/s, rad/s², rad/s
   base_frame_ = get_parameter("base_frame").as_string();
   extra_datasets_ = get_parameter("extra_datasets").as_string_array();
   glance_duration_ = get_parameter("glance_duration").as_double();
@@ -155,6 +173,8 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   target_pose_ = head_pose_;
   target_antennas_ = {positions_[7], positions_[8]};
   target_body_yaw_ = positions_[0];
+  limiter_.reset(targets());
+  last_tick_ = std::chrono::steady_clock::now();
 
   joint_pub_ = create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("~/head_pose", 10);
@@ -261,12 +281,23 @@ DriverNode::~DriverNode()
   }
 }
 
-void DriverNode::gotoPose(
-  const Pose & head, const std::array<double, 2> & antennas, double duration)
+double DriverNode::gotoPose(
+  const Pose & head, const std::array<double, 2> & antennas, double duration,
+  std::optional<double> body_yaw)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  goto_ = Goto{target_pose_, head, target_antennas_, antennas, std::max(duration, 1e-3),
-    std::chrono::steady_clock::now()};
+  return startGoto(head, antennas, body_yaw.value_or(target_body_yaw_), duration);
+}
+
+double DriverNode::startGoto(
+  const Pose & head, const std::array<double, 2> & antennas, double body_yaw, double duration)
+{
+  // from where the robot is commanded to be, which lags the targets while limited
+  const Command & from = limiter_.command();
+  duration = gotoDuration(from, Command{head, antennas, body_yaw}, smooth_limits_, duration);
+  goto_ = Goto{from.head, head, from.antennas, antennas, from.body_yaw, body_yaw,
+    std::max(duration, 1e-3), std::chrono::steady_clock::now()};
+  return duration;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +306,10 @@ void DriverNode::gotoPose(
 void DriverNode::tick()
 {
   const auto now = this->now();
+  const auto tick_time = std::chrono::steady_clock::now();
+  const double dt = std::clamp(
+    std::chrono::duration<double>(tick_time - last_tick_).count(), 0.0, 0.1);
+  last_tick_ = tick_time;
   Positions positions;
   try {
     positions = bus_->readPositions();
@@ -298,7 +333,9 @@ void DriverNode::tick()
     head_pose = head_pose_;
 
     std::optional<std::map<std::size_t, double>> joint_goals;
+    const Limits * limits = &smooth_limits_;
     if (current_ && current_->started && !current_->done) {
+      limits = &safety_limits_;
       const double t = seconds_since(current_->t0);
       if (current_->cancelled || current_->preempted || t >= current_->motion->duration()) {
         if (current_->joint_space) {
@@ -326,11 +363,14 @@ void DriverNode::tick()
         joint_goals = targets.joints;
       }
     } else if (goto_) {
+      limits = &safety_limits_;   // planned within the smooth limits already
       const double a = std::min(1.0, seconds_since(goto_->t0) / goto_->duration);
-      target_pose_ = interpolate(goto_->start_pose, goto_->end_pose, a);
+      const double s = ease(a);
+      target_pose_ = interpolate(goto_->start_pose, goto_->end_pose, s);
       for (int i = 0; i < 2; ++i) {
-        target_antennas_[i] = goto_->start_ant[i] + (goto_->end_ant[i] - goto_->start_ant[i]) * a;
+        target_antennas_[i] = goto_->start_ant[i] + (goto_->end_ant[i] - goto_->start_ant[i]) * s;
       }
+      target_body_yaw_ = goto_->start_yaw + (goto_->end_yaw - goto_->start_yaw) * s;
       if (a >= 1.0) {
         goto_.reset();
       }
@@ -339,13 +379,26 @@ void DriverNode::tick()
     }
 
     if (joint_goals) {
+      // written as is (the trajectory sets the speed), but the antennas and the body
+      // yaw within their safety caps
       Positions g = last_goals_;
       for (const auto & [index, value] : *joint_goals) {
-        g[index] = value;
+        double cap = std::numeric_limits<double>::infinity();
+        if (index == 0) {
+          cap = safety_limits_.body_yaw.velocity * dt;
+        } else if (index == 7 || index == 8) {
+          cap = safety_limits_.antennas.velocity * dt;
+        }
+        g[index] += std::clamp(value - g[index], -cap, cap);
       }
       goals = g;
+      limiter_stale_ = true;
     } else {
-      goals = computeGoals();
+      if (limiter_stale_) {
+        limiter_.reset(targets());
+        limiter_stale_ = false;
+      }
+      goals = computeGoals(limiter_.step(targets(), dt, *limits));
     }
     if (goals) {
       last_goals_ = *goals;
@@ -380,17 +433,17 @@ void DriverNode::tick()
   }
 }
 
-std::optional<Positions> DriverNode::computeGoals()
+std::optional<Positions> DriverNode::computeGoals(const Command & command)
 {
-  const auto joints = kinematics_.ik(target_pose_, target_body_yaw_);
+  const auto joints = kinematics_.ik(command.head, command.body_yaw);
   if (!joints) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "target head pose is not reachable");
     return std::nullopt;
   }
   Positions goals;
   std::copy(joints->begin(), joints->end(), goals.begin());
-  goals[7] = target_antennas_[0];
-  goals[8] = target_antennas_[1];
+  goals[7] = command.antennas[0];
+  goals[8] = command.antennas[1];
   return goals;
 }
 
@@ -402,8 +455,7 @@ void DriverNode::applyGaze()
       gaze_ = Gaze{*gaze_->previous, false, {}, std::nullopt};
     } else {
       gaze_.reset();
-      goto_ = Goto{target_pose_, kInitHeadPose, target_antennas_, target_antennas_, 1.0,
-        std::chrono::steady_clock::now()};
+      startGoto(kInitHeadPose, target_antennas_, target_body_yaw_, 1.0);
       return;
     }
   }
@@ -472,7 +524,8 @@ std::shared_ptr<DriverNode::Execution> DriverNode::startMotion(
   // 1. reach the first sample smoothly (Cartesian motions only)
   const Targets first = motion->evaluate(0.0);
   if (initial_goto > 0.0 && first.head) {
-    gotoPose(*first.head, first.antennas.value_or(target_antennas_), initial_goto);
+    initial_goto = gotoPose(
+      *first.head, first.antennas.value_or(target_antennas_), initial_goto, first.body_yaw);
     const auto until = std::chrono::steady_clock::now() +
       std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::duration<double>(initial_goto));
@@ -582,8 +635,8 @@ void DriverNode::executeReplayMotion(
   result->result = makeResult(code);
   if (code == Result::ROS_ENOERR) {
     handle->succeed(result);
-  } else if (code == Result::ROS_ECANCELED) {
-    handle->canceled(result);
+  } else if (code == Result::ROS_ECANCELED && handle->is_canceling()) {
+    handle->canceled(result);   // otherwise cancelled by the driver itself (shutdown): aborted
   } else {
     handle->abort(result);
   }
@@ -640,8 +693,8 @@ void DriverNode::executeCartesianTrajectory(
   result->result = makeResult(code);
   if (code == Result::ROS_ENOERR) {
     handle->succeed(result);
-  } else if (code == Result::ROS_ECANCELED) {
-    handle->canceled(result);
+  } else if (code == Result::ROS_ECANCELED && handle->is_canceling()) {
+    handle->canceled(result);   // otherwise cancelled by the driver itself (shutdown): aborted
   } else {
     handle->abort(result);
   }
@@ -667,6 +720,17 @@ void DriverNode::executeJointTrajectory(
     for (const auto & p : goal->trajectory.points) {
       points.push_back({rclcpp::Duration(p.time_from_start).seconds(), p.positions});
     }
+    if (!points.empty() && points.front().time > 0.0) {
+      // start from the current goals rather than jumping to the first point
+      JointMotion::Point start{0.0, {}};
+      std::lock_guard<std::mutex> lock(mutex_);
+      for (const auto & name : goal->trajectory.joint_names) {
+        const auto it = std::find(kMotorNames.begin(), kMotorNames.end(), name);
+        start.positions.push_back(
+          it == kMotorNames.end() ? 0.0 : last_goals_[it - kMotorNames.begin()]);
+      }
+      points.insert(points.begin(), start);
+    }
     motion = std::make_shared<JointMotion>(goal->trajectory.joint_names, points);
   } catch (const std::exception & e) {
     result->result = makeResult(Result::ROS_EBADMSG, e.what());
@@ -682,8 +746,8 @@ void DriverNode::executeJointTrajectory(
   result->result = makeResult(code);
   if (code == Result::ROS_ENOERR) {
     handle->succeed(result);
-  } else if (code == Result::ROS_ECANCELED) {
-    handle->canceled(result);
+  } else if (code == Result::ROS_ECANCELED && handle->is_canceling()) {
+    handle->canceled(result);   // otherwise cancelled by the driver itself (shutdown): aborted
   } else {
     handle->abort(result);
   }
@@ -704,8 +768,8 @@ void DriverNode::executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<L
       std::lock_guard<std::mutex> lock(mutex_);
       gaze_.reset();
     }
-    gotoPose(kInitHeadPose, kInitAntennas, 1.0);
-    std::this_thread::sleep_for(1100ms);
+    const double duration = gotoPose(kInitHeadPose, kInitAntennas, 1.0);
+    std::this_thread::sleep_for(std::chrono::duration<double>(duration + 0.1));
     result->result = makeResult(Result::ROS_ENOERR);
     handle->succeed(result);
     return;
@@ -792,8 +856,10 @@ void DriverNode::shutdown()
   }
   if (get_parameter("sleep_on_shutdown").as_bool()) {
     RCLCPP_INFO(get_logger(), "going to sleep");
-    gotoPose(kSleepHeadPose, kSleepAntennas, 2.0);
-    const auto deadline = std::chrono::steady_clock::now() + 2500ms;
+    const double duration = gotoPose(kSleepHeadPose, kSleepAntennas, 2.0);
+    const auto deadline = std::chrono::steady_clock::now() +
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::duration<double>(duration + 0.5));
     while (std::chrono::steady_clock::now() < deadline) {
       {
         std::lock_guard<std::mutex> lock(mutex_);

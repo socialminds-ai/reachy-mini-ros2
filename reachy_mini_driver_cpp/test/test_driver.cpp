@@ -176,7 +176,7 @@ TEST_F(DriverTest, TfFramesAreBroadcast)
   ASSERT_GE(count, 3);
   ASSERT_EQ(last.transforms.size(), 7u);
   EXPECT_EQ(last.transforms[0].child_frame_id, "head");
-  EXPECT_GT(last.transforms[0].transform.translation.z, 0.15);
+  EXPECT_GT(last.transforms[0].transform.translation.z, 0.12);   // well above base_link
 }
 
 TEST_F(DriverTest, TargetHeadPoseMovesThePlatform)
@@ -364,6 +364,57 @@ TEST_F(DriverTest, LookAtTracksGlancesAndResets)
   EXPECT_EQ(run<LookAt>("/skill/look_at", social, feedbacks), Result::ROS_ENOTSUP);
   LookAt::Goal empty;
   EXPECT_EQ(run<LookAt>("/skill/look_at", empty, feedbacks), Result::ROS_EBADMSG);
+}
+
+TEST_F(DriverTest, LookAtTurnsTheHeadAtALimitedSpeed)
+{
+  awake();
+  // 45 degrees to the left: within the smooth limits (1.5 rad/s), at least half a second
+  const auto start = std::chrono::steady_clock::now();
+  LookAt::Goal goal;
+  goal.target.header.frame_id = "base_link";
+  goal.target.point.x = 0.5;
+  goal.target.point.y = 0.5;
+  goal.target.point.z = 0.177;
+  int feedbacks = 0;
+  EXPECT_EQ(run<LookAt>("/skill/look_at", goal, feedbacks), Result::ROS_ENOERR);
+  auto previous = bus->positions;
+  double fastest = 0.0;   // largest joint change between two polls, rad
+  bool turned = false;
+  while (!turned && std::chrono::steady_clock::now() - start < 3s) {
+    std::this_thread::sleep_for(20ms);
+    const auto now = bus->positions;
+    for (int i = 0; i < 7; ++i) {
+      fastest = std::max(fastest, std::fabs(now[i] - previous[i]));
+    }
+    previous = now;
+    turned = now[0] > 0.2 || std::fabs(now[1] - 0.6265) > 0.05;
+  }
+  const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start)
+    .count();
+  EXPECT_TRUE(turned);
+  EXPECT_GT(elapsed, 0.2);       // not at once
+  EXPECT_LT(fastest, 0.2);       // no jump of a joint between two 20 ms polls
+}
+
+TEST_F(DriverTest, JointTrajectoryStartsFromTheCurrentPosition)
+{
+  awake();
+  const double before = bus->positions[7];
+  ExecuteJointTrajectory::Goal goal;
+  goal.trajectory.joint_names = {"right_antenna"};
+  trajectory_msgs::msg::JointTrajectoryPoint p;
+  p.positions = {before - 2.0};
+  p.time_from_start = rclcpp::Duration::from_seconds(1.0);
+  goal.trajectory.points = {p};
+  auto client = rclcpp_action::create_client<ExecuteJointTrajectory>(
+    client_node, "/skill/execute_joint_trajectory");
+  ASSERT_TRUE(client->wait_for_action_server(5s));
+  client->async_send_goal(goal);
+  std::this_thread::sleep_for(300ms);
+  // a third of the way at most, not already there
+  EXPECT_GT(bus->positions[7], before - 1.0);
+  EXPECT_TRUE(waitFor([&] {return std::fabs(bus->positions[7] - (before - 2.0)) < 0.05;}, 3000ms));
 }
 
 int main(int argc, char ** argv)

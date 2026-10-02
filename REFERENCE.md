@@ -26,7 +26,7 @@ executable `driver_node`:
 
 | | |
 |---|---|
-| parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `extra_datasets` (more libraries searched by the motion skills), `wake_up_on_start`, `sleep_on_shutdown`, `publish_tf`, `base_frame`, `skills_namespace` (`/skill`), `motion_initial_goto` (0.5 s), `glance_duration` (2 s, C++ only) |
+| parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `extra_datasets` (more libraries searched by the motion skills), `wake_up_on_start`, `sleep_on_shutdown`, `publish_tf`, `base_frame`, `skills_namespace` (`/skill`), `motion_initial_goto` (0.5 s), `glance_duration` (2 s, C++ only), the speed limits `max_speed.*`, `max_acceleration.*` and `safety_max_speed.*` (C++ only, see below) |
 | publishes | `joint_states` (9 joints: body_yaw, stewart_1..6, right_antenna, left_antenna), `~/head_pose`, and on `/tf` the frames `robot_state_publisher` cannot derive from joint angles: `base_link -> head` (forward kinematics of the Stewart platform) and `base_link -> rod_1..6` |
 | subscribes | `~/target_head_pose` (geometry_msgs/PoseStamped), `~/target_antennas` (reachy_mini_msgs/AntennasTarget), `~/target_body_yaw` (std_msgs/Float64) |
 | skills | see below: the driver implements the [ROS4HRI skills](https://ros4hri.github.io/skills/) that map onto the hardware, under `skills_namespace` (`/skill` by default) |
@@ -36,6 +36,27 @@ head pose (forward kinematics), evaluate the move or goto in progress, inverse
 kinematics, write the 9 goal positions. On exit the driver goes to the sleep
 pose and releases the motors (`sleep_on_shutdown`, default true), so the Pollen
 daemon can take over again cleanly.
+
+**Speed limits** (C++ driver). Between the targets and the inverse kinematics, the
+commanded pose follows the target at a bounded speed: the head moves in a straight
+line and turns about a fixed axis, the antennas and the body yaw each move on their
+own. While no motion plays (`look_at`, the `~/target_*` topics), the smooth limits
+apply, with an acceleration ramp, so a new target is reached in a smooth movement
+rather than at the servos' top speed. While a motion plays, only the safety caps
+apply, high enough for the emotions library (whose fastest moves, `dying1` for
+instance, reach 7 to 10 rad/s) but not for the jumps of a few milliseconds some
+recordings contain. Gotos (wake-up, sleep, `reset`, the glide to a motion's first
+sample) last as long as the smooth limits require, and start and stop at rest.
+
+| part | `max_speed.` | `max_acceleration.` | `safety_max_speed.` |
+|---|---|---|---|
+| `head_rotation` | 1.5 rad/s | 6 rad/s² | 10 rad/s |
+| `head_translation` | 0.1 m/s | 0.5 m/s² | 0.5 m/s |
+| `antennas` | 4 rad/s | 20 rad/s² | 15 rad/s |
+| `body_yaw` | 1.5 rad/s | 6 rad/s² | 4 rad/s |
+
+A joint trajectory starts from the current joint positions (not at its first
+point), and its antenna and body-yaw joints are held to their safety caps.
 
 ### Skills (ROS4HRI)
 
@@ -56,7 +77,9 @@ behaviour node can use it without knowing anything Reachy-specific: the goals ca
 One motion at a time: a new motion goal preempts the running one (which ends with
 `ROS_EINTR`) unless its `meta.priority` is lower, in which case it is rejected. A cancel
 returns `ROS_ECANCELED` and leaves the head where it is. Cartesian motions start with a
-`motion_initial_goto` glide to their first sample so the head never jumps.
+glide to their first sample (head, antennas and body yaw), of `motion_initial_goto`
+seconds or longer if the distance requires it under the speed limits, so the head never
+jumps.
 
 ```sh
 ros2 service call /skill/list_motions motions_skills/srv/ListMotions
