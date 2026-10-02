@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2026-10-02)
+------------------
 * Description: flip the antenna joint axes
   The SDK model has the antenna axes reversed (its MuJoCo backend negates the
   antenna commands), so RViz showed the antennas turning the wrong way.
