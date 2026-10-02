@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.8.0 (2026-10-02)
 ------------------
 * C++ driver: speed limits, smooth gotos, joint trajectories from the current position
