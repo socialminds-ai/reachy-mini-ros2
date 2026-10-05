@@ -79,6 +79,7 @@ private:
   void handle_raw(GstSample * sample);
   builtin_interfaces::msg::Time stamp_of(GstSample * sample);
   void publish_camera_info(const std_msgs::msg::Header & header, int width, int height);
+  void load_calibration();
 
   rcl_interfaces::msg::SetParametersResult validate_parameters(
     const std::vector<rclcpp::Parameter> & parameters);
@@ -112,6 +113,7 @@ private:
   std::atomic<uint64_t> packet_count_{0};
   std::string frame_id_;
   std::shared_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
+  std::string calibration_url_;  // the one camera_info_manager_ holds
 
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr raw_pub_;
   rclcpp::Publisher<ffmpeg_image_transport_msgs::msg::FFMPEGPacket>::SharedPtr ffmpeg_pub_;

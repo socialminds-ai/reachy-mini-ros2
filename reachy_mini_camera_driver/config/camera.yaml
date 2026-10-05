@@ -6,7 +6,9 @@
     source: libcamera          # or 'v4l2:/dev/video0', or 'test'
     encoder: v4l2h264enc       # Raspberry Pi hardware; x264enc / openh264enc elsewhere
     frame_id: camera_optical
-    camera_info_url: ""        # e.g. file:///root/ros/camera.yaml (from camera_calibration)
+    camera_info_url: ""        # empty: the installed calibration of the sensor mode in
+                               # use (config/calibration_{wide,narrow}.yaml, scaled to
+                               # other 16:9 sizes); or e.g. file:///root/ros/camera.yaml
     lazy: true                 # camera off while nobody subscribes
 
     # stream (changing one restarts the camera, about a second)
@@ -16,7 +18,7 @@
     width: 1280
     height: 720
     framerate: 30
-    # Sensor mode; each one needs its own calibration.
+    # Sensor mode; each one has its own calibration (calibration_*.yaml).
     #  wide:   the full sensor (2304x1296 binned), ~102 deg horizontally: sees
     #          people around the robot; more for the ISP to read and scale,
     #          up to ~56 fps, stronger distortion towards the edges.

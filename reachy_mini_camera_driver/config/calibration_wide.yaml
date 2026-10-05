@@ -1,0 +1,23 @@
+# Reachy Mini IMX708 wide camera, field_of_view: wide (2304x1296 sensor mode), 1280x720,
+# focus manual at 1.5 m (lens_position 0.667). Calibrated on reachy-mini-1, 2026-10-05:
+# 136 views of a 9x7 / 25 mm checkerboard, rational model, RMS 0.507 px.
+image_width: 1280
+image_height: 720
+camera_name: reachy_mini_camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [542.503726, 0.0, 637.144963, 0.0, 541.302538, 359.746468, 0.0, 0.0, 1.0]
+distortion_model: rational_polynomial
+distortion_coefficients:
+  rows: 1
+  cols: 8
+  data: [-1.286739, 0.942347, 0.00114, 6.6e-05, -0.080936, -1.250175, 0.844434, -0.017315]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [542.503726, 0.0, 637.144963, 0.0, 0.0, 541.302538, 359.746468, 0.0, 0.0, 0.0, 1.0, 0.0]

@@ -1,0 +1,23 @@
+# Reachy Mini IMX708 wide camera, field_of_view: narrow (1536x864 sensor mode), 1280x720,
+# focus manual at 1.5 m (lens_position 0.667). Calibrated on reachy-mini-1, 2026-10-05:
+# 104 views of a 9x7 / 25 mm checkerboard (camera_calibration), plumb_bob model.
+image_width: 1280
+image_height: 720
+camera_name: reachy_mini_camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [819.96844, 0.0, 659.35211, 0.0, 817.94595, 344.62063, 0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.048659, 0.116632, -0.002437, 0.006988, -0.063656]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [822.57662, 0.0, 670.05039, 0.0, 0.0, 827.84503, 342.53901, 0.0, 0.0, 0.0, 1.0, 0.0]

@@ -191,7 +191,10 @@ CameraNode::CameraNode(const rclcpp::NodeOptions & options)
   declare_parameter<std::string>("frame_id", "camera_optical", describe("frame of the images", true));
   declare_parameter<std::string>(
     "camera_info_url", "",
-    describe("camera_info_manager URL of the calibration (e.g. file:///path/camera.yaml)", true));
+    describe(
+      "camera_info_manager URL of the calibration (e.g. file:///path/camera.yaml). Empty: "
+      "with libcamera, the installed calibration of the sensor mode in use "
+      "(config/calibration_wide.yaml or calibration_narrow.yaml)", true));
   declare_parameter<bool>(
     "lazy", true, describe("stop the camera when no image topic has subscribers"));
 
@@ -244,8 +247,8 @@ CameraNode::CameraNode(const rclcpp::NodeOptions & options)
   // it at the root (/set_camera_info)
   const std::string ns = get_namespace();
   camera_info_manager_ = std::make_shared<camera_info_manager::CameraInfoManager>(
-    this, "reachy_mini_camera", get_parameter("camera_info_url").as_string(),
-    ns == "/" ? "" : ns);
+    this, "reachy_mini_camera", "", ns == "/" ? "" : ns);
+  load_calibration();
 
   const auto qos = rclcpp::QoS(5);
   raw_pub_ = create_publisher<sensor_msgs::msg::Image>("image_raw", qos);
@@ -405,6 +408,7 @@ bool CameraNode::start_pipeline()
       "upscales it (or, from %d, uses the full sensor: the wide field of view)",
       kNarrowModeMaxWidth, settings_.width, kWideModeMinWidth);
   }
+  load_calibration();
   const auto description = build_pipeline_description(settings_);
   RCLCPP_DEBUG(get_logger(), "pipeline: %s", description.c_str());
 
@@ -680,6 +684,31 @@ void CameraNode::handle_raw(GstSample * sample)
   const auto header = msg->header;
   raw_pub_->publish(std::move(msg));
   publish_camera_info(header, GST_VIDEO_INFO_WIDTH(&info), GST_VIDEO_INFO_HEIGHT(&info));
+}
+
+void CameraNode::load_calibration()
+{
+  auto url = get_parameter("camera_info_url").as_string();
+  if (url.empty() && settings_.source == "libcamera") {
+    // the sensor mode libcamera will use: from 1920 pixels on, the full
+    // sensor, whatever field_of_view says
+    const bool wide = settings_.field_of_view == "wide" || settings_.width >= kWideModeMinWidth;
+    url = std::string("package://reachy_mini_camera_driver/config/calibration_") +
+      (wide ? "wide" : "narrow") + ".yaml";
+  }
+  if (url == calibration_url_) {
+    return;
+  }
+  calibration_url_ = url;
+  if (url.empty()) {
+    camera_info_manager_->setCameraInfo(sensor_msgs::msg::CameraInfo());
+    return;
+  }
+  if (camera_info_manager_->loadCameraInfo(url)) {
+    RCLCPP_INFO(get_logger(), "calibration: %s", url.c_str());
+  } else {
+    RCLCPP_WARN(get_logger(), "could not load the calibration %s", url.c_str());
+  }
 }
 
 void CameraNode::publish_camera_info(
