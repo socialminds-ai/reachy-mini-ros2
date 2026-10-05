@@ -2,8 +2,8 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.2.0 (2026-10-05)
+------------------
 * Drivers: move libraries from installed packages (package://), by default
   MoveLibrary (C++ and Python) takes package://<package>/<directory>,
   resolved through the ament index. The default library is now

@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_expressions_data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.2.0 (2026-10-05)
+------------------
 * update changelogs
 * reachy_mini_expressions_data: Pollen's moves and sounds as a ROS package
   A data-only package with unmodified copies of Pollen Robotics' Apache-2.0
