@@ -2,6 +2,13 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* reachy_mini: depend on reachy_mini_expressions_data
+  Its driver.yaml uses the packaged move libraries by default.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.2.0 (2026-10-05)
 ------------------
 * Drivers: move libraries from installed packages (package://), by default

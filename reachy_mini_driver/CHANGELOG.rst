@@ -2,6 +2,14 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Drivers: clear error, with the serial_port:=fake hint, when the servo bus cannot be opened
+  Instead of 'terminate called after throwing...' (C++) or a traceback (Python),
+  startup errors are logged as FATAL and the node exits with code 1.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.2.0 (2026-10-05)
 ------------------
 * Drivers: move libraries from installed packages (package://), by default
