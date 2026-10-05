@@ -210,8 +210,13 @@ CameraNode::CameraNode(const rclcpp::NodeOptions & options)
   settings_ = read_settings();
   frame_id_ = get_parameter("frame_id").as_string();
 
+  // set_camera_info next to camera_info (/camera/set_camera_info), where
+  // camera_calibration looks: without a namespace, camera_info_manager puts
+  // it at the root (/set_camera_info)
+  const std::string ns = get_namespace();
   camera_info_manager_ = std::make_shared<camera_info_manager::CameraInfoManager>(
-    this, "reachy_mini_camera", get_parameter("camera_info_url").as_string());
+    this, "reachy_mini_camera", get_parameter("camera_info_url").as_string(),
+    ns == "/" ? "" : ns);
 
   const auto qos = rclcpp::QoS(5);
   raw_pub_ = create_publisher<sensor_msgs::msg::Image>("image_raw", qos);
