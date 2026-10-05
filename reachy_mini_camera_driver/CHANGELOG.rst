@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_camera_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2026-10-05)
+------------------
 * Camera driver: shipped calibrations, chosen by sensor mode
   calibration_wide.yaml and calibration_narrow.yaml (IMX708 wide, 1280x720,
   focus at 1.5 m), measured on reachy-mini-1 with a 9x7 / 25 mm checkerboard:
