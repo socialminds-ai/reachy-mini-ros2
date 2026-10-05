@@ -21,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -161,7 +162,16 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   } else if (port == "fake") {
     bus_ = std::make_shared<FakeBus>();
   } else {
-    bus_ = std::make_shared<RealBus>(port);
+    try {
+      bus_ = std::make_shared<RealBus>(port);
+    } catch (const std::runtime_error & e) {
+      throw std::runtime_error(
+              std::string(e.what()) + "\n"
+              "The servo bus is only there on the robot. To run without hardware, use the "
+              "simulated bus:\n"
+              "  ros2 launch reachy_mini driver.launch.py serial_port:=fake\n"
+              "  ros2 run reachy_mini_driver_cpp driver_node --ros-args -p serial_port:=fake");
+    }
   }
   library_ = MoveLibrary(get_parameter("dataset").as_string());
 

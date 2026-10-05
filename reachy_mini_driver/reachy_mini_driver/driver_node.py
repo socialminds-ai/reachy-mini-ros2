@@ -26,6 +26,7 @@ runs unchanged on a `FakeBus` (tests, laptops).
 """
 
 import signal
+import sys
 import threading
 import time
 from typing import List, Optional, Tuple
@@ -38,6 +39,7 @@ import rclpy
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.logging import get_logger
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
 from reachy_mini.kinematics.analytical_kinematics import AnalyticalKinematics
@@ -167,7 +169,21 @@ class DriverNode(Node):
         self.declare_parameter('motion_initial_goto', 0.5)
 
         port = self.get_parameter('serial_port').value
-        self.bus = bus if bus is not None else (FakeBus() if port == 'fake' else RealBus(port))
+        if bus is not None:
+            self.bus = bus
+        elif port == 'fake':
+            self.bus = FakeBus()
+        else:
+            try:
+                self.bus = RealBus(port)
+            except Exception as e:
+                raise RuntimeError(
+                    f'cannot open the servo bus on {port}: {e}\n'
+                    'The servo bus is only there on the robot. To run without hardware, use the '
+                    'simulated bus:\n'
+                    '  ros2 launch reachy_mini driver.launch.py serial_port:=fake\n'
+                    '  ros2 run reachy_mini_driver driver_node --ros-args -p serial_port:=fake'
+                ) from e
         self.kinematics = AnalyticalKinematics(automatic_body_yaw=True)
         self.library = MoveLibrary(self.get_parameter('dataset').value)
 
@@ -430,7 +446,12 @@ def main(args=None) -> None:
     context, then we shut ROS down ourselves.
     """
     rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
-    node = DriverNode()
+    try:
+        node = DriverNode()
+    except RuntimeError as e:
+        get_logger('reachy_mini_driver').fatal(str(e))
+        rclpy.shutdown()
+        sys.exit(1)
     executor = MultiThreadedExecutor(num_threads=3)
     executor.add_node(node)
     stop = threading.Event()

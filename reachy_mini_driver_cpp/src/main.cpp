@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <exception>
 #include <memory>
 
 #include "rclcpp/rclcpp.hpp"
@@ -20,7 +21,14 @@
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<reachy_mini_driver::DriverNode>();
+  std::shared_ptr<reachy_mini_driver::DriverNode> node;
+  try {
+    node = std::make_shared<reachy_mini_driver::DriverNode>();
+  } catch (const std::exception & e) {
+    RCLCPP_FATAL(rclcpp::get_logger("reachy_mini_driver"), "%s", e.what());
+    rclcpp::shutdown();
+    return 1;
+  }
   rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3);
   executor.add_node(node);
   executor.spin();
