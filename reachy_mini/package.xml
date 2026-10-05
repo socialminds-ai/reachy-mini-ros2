@@ -15,6 +15,7 @@
   -->
   <exec_depend>reachy_mini_driver_cpp</exec_depend>
   <exec_depend>reachy_mini_description</exec_depend>
+  <exec_depend>reachy_mini_expressions_data</exec_depend>
   <exec_depend>reachy_mini_camera_driver</exec_depend>
   <exec_depend>mic_frontend</exec_depend>
   <exec_depend>pw_audio_play</exec_depend>
