@@ -48,6 +48,7 @@ struct StreamSettings
   int bitrate = 2000000;  // bit/s
   int keyframe_interval = 60;  // frames
   std::string h264_profile = "high";
+  std::string field_of_view = "wide";  // libcamera: "wide" or "narrow" sensor mode
 };
 
 // The gst-launch description of the capture + encode pipeline. Exposed for tests.

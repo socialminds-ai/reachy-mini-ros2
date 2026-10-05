@@ -46,7 +46,8 @@ constexpr int kHardwareEncoderMaxWidth = 1920;
 constexpr int kHardwareEncoderMaxHeight = 1080;
 
 const std::set<std::string> kRestartParameters = {
-  "width", "height", "framerate", "bitrate", "keyframe_interval", "h264_profile"};
+  "width", "height", "framerate", "bitrate", "keyframe_interval", "h264_profile",
+  "field_of_view"};
 const std::set<std::string> kLiveParameters = {
   "autofocus_mode", "lens_position", "exposure_value"};
 
@@ -88,6 +89,17 @@ rcl_interfaces::msg::ParameterDescriptor describe_float(
   return d;
 }
 
+// libcamera picks the IMX708 sensor mode from the largest stream: the
+// 1536x864 central crop (about 77 deg horizontally) for outputs narrower than
+// 1920 pixels, the full sensor binned to 2304x1296 (about 102 deg) from 1920
+// on. libcamerasrc 0.7 can neither select the mode nor output the (packed)
+// raw stream that would set it, so the wide field of view at a smaller output
+// asks the ISP for a second, discarded 1920x1080 stream.
+constexpr int kWideModeMinWidth = 1920;
+constexpr int kWideModeMinHeight = 1080;
+constexpr int kNarrowModeMaxWidth = 1536;  // above, the crop would be upscaled
+const std::set<std::string> kFieldsOfView = {"wide", "narrow"};
+
 }  // namespace
 
 std::string build_pipeline_description(const StreamSettings & s)
@@ -101,6 +113,16 @@ std::string build_pipeline_description(const StreamSettings & s)
     d << "libcamerasrc name=source";
     if (!s.camera_name.empty()) {
       d << " camera-name=\"" << s.camera_name << "\"";
+    }
+    if (s.field_of_view == "wide" && s.width < kWideModeMinWidth) {
+      // The ISP's first output must be the larger one: the discarded stream.
+      // Each branch needs its queue, or the source stalls.
+      d << " src_0::stream-role=view-finder"
+        << " source.src ! video/x-raw,format=I420,width=" << kWideModeMinWidth
+        << ",height=" << kWideModeMinHeight << ",framerate=" << s.framerate << "/1"
+        << " ! queue leaky=downstream max-size-buffers=1 max-size-bytes=0 max-size-time=0"
+        << " ! fakesink sync=false async=false"
+        << " source.src_0";
     }
     // the ISP scales and converts; the colorimetry is what v4l2h264enc accepts
     d << " ! " << raw_caps.str() << ",colorimetry=bt709,interlace-mode=progressive";
@@ -187,6 +209,13 @@ CameraNode::CameraNode(const rclcpp::NodeOptions & options)
     "h264_profile", "high", describe("H.264 profile: 'baseline', 'main' or 'high'"));
 
   declare_parameter<std::string>(
+    "field_of_view", "wide",
+    describe(
+      "libcamera only: sensor mode. 'wide' (full sensor, about 102 deg horizontally) or "
+      "'narrow' (central crop, about 77 deg, width up to 1536; less work for the ISP). Each "
+      "needs its own calibration"));
+
+  declare_parameter<std::string>(
     "autofocus_mode", "manual",
     describe("libcamera only: 'continuous', 'auto' (one scan per trigger) or 'manual'"));
   declare_parameter<double>(
@@ -200,7 +229,7 @@ CameraNode::CameraNode(const rclcpp::NodeOptions & options)
 
   // validate the values given at startup too
   for (const auto & p : get_parameters(
-      {"encoder", "width", "height", "h264_profile", "autofocus_mode"}))
+      {"encoder", "width", "height", "h264_profile", "field_of_view", "autofocus_mode"}))
   {
     const auto result = validate_parameters({p});
     if (!result.successful) {
@@ -256,6 +285,7 @@ StreamSettings CameraNode::read_settings()
   s.bitrate = get_parameter("bitrate").as_int();
   s.keyframe_interval = get_parameter("keyframe_interval").as_int();
   s.h264_profile = get_parameter("h264_profile").as_string();
+  s.field_of_view = get_parameter("field_of_view").as_string();
   return s;
 }
 
@@ -280,6 +310,8 @@ rcl_interfaces::msg::SetParametersResult CameraNode::validate_parameters(
       std::set<std::string>{"baseline", "main", "high"}.count(p.as_string()) == 0)
     {
       result.reason = "h264_profile must be baseline, main or high";
+    } else if (name == "field_of_view" && kFieldsOfView.count(p.as_string()) == 0) {
+      result.reason = "field_of_view must be wide or narrow";
     } else if (name == "autofocus_mode" &&
       std::set<std::string>{"continuous", "auto", "manual"}.count(p.as_string()) == 0)
     {
@@ -306,9 +338,11 @@ void CameraNode::on_parameters_set(const std::vector<rclcpp::Parameter> & parame
   if (restart_requested_) {
     settings_ = read_settings();
     RCLCPP_INFO(
-      get_logger(), "new stream settings: %dx%d @ %d fps, %d bit/s, keyframe every %d frames, %s",
-      settings_.width, settings_.height, settings_.framerate, settings_.bitrate,
-      settings_.keyframe_interval, settings_.h264_profile.c_str());
+      get_logger(),
+      "new stream settings: %dx%d @ %d fps, %s field of view, %d bit/s, "
+      "keyframe every %d frames, %s",
+      settings_.width, settings_.height, settings_.framerate, settings_.field_of_view.c_str(),
+      settings_.bitrate, settings_.keyframe_interval, settings_.h264_profile.c_str());
   }
 }
 
@@ -363,6 +397,14 @@ void CameraNode::on_timer()
 
 bool CameraNode::start_pipeline()
 {
+  if (settings_.source == "libcamera" && settings_.field_of_view == "narrow" &&
+    settings_.width > kNarrowModeMaxWidth)
+  {
+    RCLCPP_WARN(
+      get_logger(), "field_of_view 'narrow' is a %d-pixel-wide crop: at %d pixels, libcamera "
+      "upscales it (or, from %d, uses the full sensor: the wide field of view)",
+      kNarrowModeMaxWidth, settings_.width, kWideModeMinWidth);
+  }
   const auto description = build_pipeline_description(settings_);
   RCLCPP_DEBUG(get_logger(), "pipeline: %s", description.c_str());
 
