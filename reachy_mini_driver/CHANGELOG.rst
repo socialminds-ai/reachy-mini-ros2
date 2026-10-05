@@ -2,6 +2,18 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Drivers: move libraries from installed packages (package://), by default
+  MoveLibrary (C++ and Python) takes package://<package>/<directory>,
+  resolved through the ament index. The default library is now
+  package://reachy_mini_expressions_data/emotions, and the dances are an
+  extra library: no HuggingFace cache or network needed, and the moves are
+  versioned with the stack. Directories and HuggingFace dataset names still
+  work.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.1.0 (2026-10-05)
 ------------------
 

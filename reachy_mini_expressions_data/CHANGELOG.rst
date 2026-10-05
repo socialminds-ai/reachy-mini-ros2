@@ -4,6 +4,17 @@ Changelog for package reachy_mini_expressions_data
 
 Forthcoming
 -----------
+* update changelogs
+* reachy_mini_expressions_data: Pollen's moves and sounds as a ROS package
+  A data-only package with unmodified copies of Pollen Robotics' Apache-2.0
+  files, pinned: the emotions library (85 moves, 84 Opus sounds, metadata,
+  dataset card) at 873ae49, the dances library (19 moves) at 3564295, and
+  the six sound files of the reachy-mini SDK 1.10.0. LICENSE, and a NOTICE
+  with the attribution, the sources and the revisions; the README says how
+  to update them.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 * reachy_mini_expressions_data: Pollen's moves and sounds as a ROS package
   A data-only package with unmodified copies of Pollen Robotics' Apache-2.0
   files, pinned: the emotions library (85 moves, 84 Opus sounds, metadata,

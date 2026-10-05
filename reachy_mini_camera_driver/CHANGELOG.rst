@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_camera_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.1.0 (2026-10-05)
 ------------------
 * Camera driver: shipped calibrations, chosen by sensor mode
