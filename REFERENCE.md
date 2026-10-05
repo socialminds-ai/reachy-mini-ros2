@@ -121,7 +121,7 @@ stops 5 s after the last subscriber leaves.
 |---|---|
 | publishes | `image_raw/ffmpeg` (`ffmpeg_image_transport_msgs/FFMPEGPacket`, H.264): subscribe with the `ffmpeg` image transport to get `sensor_msgs/Image`s, e.g. `ros2 run image_transport republish --ros-args -p in_transport:=ffmpeg -p out_transport:=raw -r in/ffmpeg:=/camera/image_raw/ffmpeg -r out:=/camera/image`; `image_raw/h264` (`foxglove_msgs/CompressedVideo`) for Foxglove; `image_raw` (`sensor_msgs/Image`, `yuv422_yuy2`, uncompressed: meant for nodes on the robot); `camera_info` |
 | stream parameters (dynamic; a change restarts the camera, about a second) | `width`, `height` (1280x720; the sensor is 16:9 and the hardware encoder stops at 1920x1080), `framerate` (30), `bitrate` (2 Mbit/s: the compression level), `keyframe_interval` (60 frames), `h264_profile` (`high`, `main` or `baseline`) |
-| image parameters (dynamic, applied live) | `autofocus_mode` (`continuous`, `auto`, `manual`), `lens_position` (dioptres, for `manual`), `exposure_value` (EV) |
+| image parameters (dynamic, applied live) | `autofocus_mode` (`manual`, `continuous` or `auto`), `lens_position` (dioptres = 1/distance in m, for `manual`; 0.667 = 1.5 m), `exposure_value` (EV) |
 | other parameters | `lazy` (true), `frame_id` (`camera_optical`, the URDF's optical frame), `camera_info_url` (a `camera_calibration` result; none is shipped, the daemon's calibration being for another camera), `source` (`libcamera`, `v4l2:<device>` or `test`) and `encoder` (`v4l2h264enc`, or `x264enc` / `openh264enc` to develop on a PC) |
 
 Timestamps are the capture time (sensor timestamp from libcamera, in system

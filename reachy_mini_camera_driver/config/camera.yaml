@@ -18,6 +18,6 @@
     h264_profile: high         # baseline, main or high
 
     # image controls (applied live)
-    autofocus_mode: continuous # continuous, auto or manual
-    lens_position: 1.0         # dioptres (1/m), with autofocus_mode manual
+    autofocus_mode: manual     # manual (fixed focus, keeps the calibration valid), continuous or auto
+    lens_position: 0.667       # dioptres (1/distance in m): 0.667 = focus at 1.5 m; 0 = infinity
     exposure_value: 0.0        # EV

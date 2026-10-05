@@ -187,10 +187,10 @@ CameraNode::CameraNode(const rclcpp::NodeOptions & options)
     "h264_profile", "high", describe("H.264 profile: 'baseline', 'main' or 'high'"));
 
   declare_parameter<std::string>(
-    "autofocus_mode", "continuous",
+    "autofocus_mode", "manual",
     describe("libcamera only: 'continuous', 'auto' (one scan per trigger) or 'manual'"));
   declare_parameter<double>(
-    "lens_position", 1.0,
+    "lens_position", 1.0 / 1.5,
     describe_float(
       "libcamera only, autofocus_mode 'manual': focus distance in dioptres (1/m; 0 = infinity)",
       0.0, 32.0));
