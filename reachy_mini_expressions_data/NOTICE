@@ -1,0 +1,20 @@
+reachy_mini_expressions_data
+
+This package redistributes files by Pollen Robotics (https://www.pollen-robotics.com),
+licensed under the Apache License, Version 2.0 (see LICENSE):
+
+- emotions/: the Reachy Mini Emotions Library,
+  https://huggingface.co/datasets/pollen-robotics/reachy-mini-emotions-library
+  revision 873ae49f0b89114b7e535eff0c1f7560d21d9357.
+  Recorded moves (<name>.json) and their sounds (<name>.ogg), with the
+  dataset's metadata.jsonl and card (README.md).
+
+- dances/: the Reachy Mini Dances Library,
+  https://huggingface.co/datasets/pollen-robotics/reachy-mini-dances-library
+  revision 3564295e72d41c1271f46bf5540a3fcad9d5f669.
+  Recorded moves (<name>.json) and the dataset's card (README.md).
+
+- sounds/: the sound files of the reachy-mini Python SDK 1.10.0
+  (reachy_mini/assets/*.wav), https://pypi.org/project/reachy-mini/1.10.0/
+
+The files are unmodified: they were only copied into this package.
