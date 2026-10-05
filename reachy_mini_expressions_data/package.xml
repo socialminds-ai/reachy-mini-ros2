@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>reachy_mini_expressions_data</name>
-  <version>1.2.0</version>
+  <version>1.2.1</version>
   <description>Pollen Robotics' expressive moves and sounds for the Reachy Mini, packaged for ROS: the emotions library (recorded moves with their sounds), the dances library and the SDK's sound files. Data only.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
