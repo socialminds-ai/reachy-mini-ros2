@@ -198,8 +198,12 @@ missing fields default to identity/zeros).
 
 **The emotions library and the HuggingFace cache.** Pollen's moves live in the dataset
 `pollen-robotics/reachy-mini-emotions-library` (about 85 moves, plus one sound file each).
-`MoveLibrary` (`moves.py`, `moves.cpp`) takes a dataset name or a local directory of
-`<name>.json`. For a name, the Python version calls the SDK's `RecordedMoves(dataset)`,
+The `reachy_mini_expressions_data` package ships a pinned copy (with the dances library
+and the SDK's sounds), and the driver uses it by default: no network, no cache, the
+moves versioned with the stack. `MoveLibrary` (`moves.py`, `moves.cpp`) takes
+`package://<package>/<directory>`, resolved through the ament index
+(`get_package_share_path`), a local directory of `<name>.json`, or a dataset name.
+For a name, the Python version calls the SDK's `RecordedMoves(dataset)`,
 which downloads through `huggingface_hub`; the C++ version has no network code and
 resolves the cache layout itself (`MoveLibrary::resolveDataset`): under `$HF_HOME` or
 `~/.cache/huggingface`, `hub/datasets--<org>--<name>/refs/main` gives the snapshot SHA

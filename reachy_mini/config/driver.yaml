@@ -3,8 +3,9 @@ reachy_mini_driver:
   ros__parameters:
     serial_port: /dev/ttyAMA3          # servo bus; 'fake' = ideal simulated bus (no hardware)
     rate: 50.0                         # control loop frequency, Hz
-    dataset: pollen-robotics/reachy-mini-emotions-library   # default move library
-    extra_datasets: ['']               # more libraries (HF datasets or directories) for the motion skills
+    # move libraries: package://<package>/<dir> (ament index), a directory, or a HF dataset
+    dataset: package://reachy_mini_expressions_data/emotions        # default library
+    extra_datasets: ['package://reachy_mini_expressions_data/dances'] # more, for the motion skills
     skills_namespace: /skill           # ROS4HRI skills: <ns>/replay_motion, list_motions, look_at, ...
     motion_initial_goto: 0.5           # s, glide to the first sample of a motion before playing it
     glance_duration: 2.0               # s, how long look_at holds a GLANCE (C++ driver)

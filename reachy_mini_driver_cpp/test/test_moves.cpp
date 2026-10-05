@@ -63,6 +63,37 @@ TEST(Moves, ResolveDatasetFromHuggingFaceCache)
   fs::remove_all(home);
 }
 
+TEST(Moves, ResolveDatasetFromPackage)
+{
+  // Fake install prefix: the ament index marker and the package's share directory
+  namespace fs = std::filesystem;
+  const fs::path prefix = fs::temp_directory_path() / "rmd_ament_prefix_test";
+  fs::create_directories(prefix / "share" / "ament_index" / "resource_index" / "packages");
+  std::ofstream(prefix / "share" / "ament_index" / "resource_index" / "packages" / "fake_moves");
+  fs::create_directories(prefix / "share" / "fake_moves" / "emotions");
+  fs::copy_file(
+    fs::path(TEST_MOVES_DIR) / "nod.json", prefix / "share" / "fake_moves" / "emotions" / "nod.json",
+    fs::copy_options::overwrite_existing);
+  const char * previous = std::getenv("AMENT_PREFIX_PATH");
+  const std::string saved = previous ? previous : "";
+  setenv("AMENT_PREFIX_PATH", (prefix.string() + (previous ? ":" + saved : "")).c_str(), 1);
+
+  EXPECT_EQ(
+    MoveLibrary::resolveDataset("package://fake_moves/emotions"),
+    (prefix / "share" / "fake_moves" / "emotions").string());
+  MoveLibrary lib("package://fake_moves/emotions");
+  EXPECT_NO_THROW(lib.get("nod"));
+  EXPECT_THROW(MoveLibrary::resolveDataset("package://fake_moves/nothing"), std::runtime_error);
+  EXPECT_THROW(MoveLibrary::resolveDataset("package://no_such_package/x"), std::runtime_error);
+
+  if (previous) {
+    setenv("AMENT_PREFIX_PATH", saved.c_str(), 1);
+  } else {
+    unsetenv("AMENT_PREFIX_PATH");
+  }
+  fs::remove_all(prefix);
+}
+
 TEST(Moves, LibraryFromDirectory)
 {
   MoveLibrary lib(TEST_MOVES_DIR);

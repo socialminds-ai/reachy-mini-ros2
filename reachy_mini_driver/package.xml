@@ -7,6 +7,7 @@
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
 
+  <depend>ament_index_python</depend>
   <depend>rclpy</depend>
   <depend>reachy_mini_msgs</depend>
   <depend>motions_skills</depend>
@@ -19,6 +20,7 @@
   <depend>python3-scipy</depend>
   <!-- reachy_mini (pip): motor controller, kinematics and move loader. Not a rosdep key;
        see REFERENCE.md (The Python driver). -->
+  <exec_depend>reachy_mini_expressions_data</exec_depend>
   <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

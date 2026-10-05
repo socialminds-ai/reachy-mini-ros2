@@ -25,6 +25,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include "ament_index_cpp/get_package_prefix.hpp"
+#include "ament_index_cpp/get_package_share_path.hpp"
+
 namespace reachy_mini_driver
 {
 
@@ -105,6 +108,27 @@ MoveLibrary::MoveLibrary(std::string default_dataset)
 std::string MoveLibrary::resolveDataset(const std::string & dataset)
 {
   namespace fs = std::filesystem;
+  // package://<package>/<directory>: a directory of an installed package's share
+  const std::string scheme = "package://";
+  if (dataset.rfind(scheme, 0) == 0) {
+    const auto rest = dataset.substr(scheme.size());
+    const auto slash = rest.find('/');
+    const auto package = rest.substr(0, slash);
+    fs::path dir;
+    try {
+      dir = ament_index_cpp::get_package_share_path(package);
+    } catch (const ament_index_cpp::PackageNotFoundError &) {
+      throw std::runtime_error(
+              "dataset '" + dataset + "': package '" + package + "' is not installed");
+    }
+    if (slash != std::string::npos) {
+      dir /= rest.substr(slash + 1);
+    }
+    if (!fs::is_directory(dir)) {
+      throw std::runtime_error("dataset '" + dataset + "': no directory " + dir.string());
+    }
+    return dir.string();
+  }
   if (fs::is_directory(dataset)) {
     return dataset;
   }

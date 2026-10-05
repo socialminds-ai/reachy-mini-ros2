@@ -68,7 +68,7 @@ behaviour node can use it without knowing anything Reachy-specific: the goals ca
 
 | skill | type | C++ | Python | what |
 |---|---|---|---|---|
-| `/skill/replay_motion` | action `motions_skills/ReplayMotion` | yes | yes | plays a recorded move by `name`, from `dataset` (a HuggingFace dataset such as Pollen's `pollen-robotics/reachy-mini-emotions-library`, or a local directory of move JSON files) or one of `extra_datasets`; unknown name -> `ROS_EBADMSG` with the available names in `error_msg` |
+| `/skill/replay_motion` | action `motions_skills/ReplayMotion` | yes | yes | plays a recorded move by `name`, from `dataset` (by default `package://reachy_mini_expressions_data/emotions`, Pollen's emotions library as installed by `reachy_mini_expressions_data`; also a local directory of move JSON files, or a HuggingFace dataset such as `pollen-robotics/reachy-mini-emotions-library`) or one of `extra_datasets` (by default the packaged dances); unknown name -> `ROS_EBADMSG` with the available names in `error_msg` |
 | `/skill/list_motions` | service `motions_skills/ListMotions` | yes | yes | the names `replay_motion` accepts |
 | `/skill/execute_cartesian_trajectory` | action `motions_skills/ExecuteCartesianTrajectory` | yes | no | `moveit_msgs/CartesianTrajectory` for `tracked_frame` `head`, poses in `base_frame` (the head frame sits about 0.177 m above `base_link` at rest, see `/tf`): head poses over time, linearly interpolated, IK by the driver |
 | `/skill/execute_joint_trajectory` | action `motions_skills/ExecuteJointTrajectory` | yes | no | `trajectory_msgs/JointTrajectory` on any of the 9 joints, bypassing the kinematics; `safe_mode` (default true) refuses the `stewart_*` joints, since driving them one by one can strain the platform |

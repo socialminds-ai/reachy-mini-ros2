@@ -16,7 +16,9 @@ Recorded moves: loading and evaluation.
 
 A move is a JSON file (Pollen's format: `time` + `set_target_data`, 50 Hz)
 giving a head pose, antenna positions and a body yaw over time. Libraries can
-be a HuggingFace dataset (downloaded once, cached) or a local directory.
+be a directory of an installed package (package://<package>/<directory>,
+found through the ament index), a local directory, or a HuggingFace dataset
+(downloaded once, cached).
 """
 
 import glob
@@ -25,9 +27,26 @@ import os
 from pathlib import Path
 from typing import Dict, Optional
 
+from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import PackageNotFoundError
 from reachy_mini.motion.recorded_move import RecordedMove, RecordedMoves
 
-DEFAULT_DATASET = 'pollen-robotics/reachy-mini-emotions-library'
+# Pollen's emotions library, as installed by reachy_mini_expressions_data
+DEFAULT_DATASET = 'package://reachy_mini_expressions_data/emotions'
+PACKAGE_SCHEME = 'package://'
+
+
+def resolve_package_dataset(dataset: str) -> str:
+    """Return the directory of package://<package>/<directory>, through the ament index."""
+    package, _, sub = dataset[len(PACKAGE_SCHEME):].partition('/')
+    try:
+        share = get_package_share_directory(package)
+    except PackageNotFoundError:
+        raise KeyError(f"dataset '{dataset}': package '{package}' is not installed") from None
+    path = os.path.join(share, sub)
+    if not os.path.isdir(path):
+        raise KeyError(f"dataset '{dataset}': no directory {path}")
+    return path
 
 
 class MoveLibrary:
@@ -39,6 +58,8 @@ class MoveLibrary:
         self._datasets: Dict[str, Dict[str, RecordedMove]] = {}
 
     def _load(self, dataset: str) -> Dict[str, RecordedMove]:
+        if dataset.startswith(PACKAGE_SCHEME):
+            dataset = resolve_package_dataset(dataset)
         if os.path.isdir(dataset):
             moves = {}
             for path in glob.glob(os.path.join(dataset, '*.json')):

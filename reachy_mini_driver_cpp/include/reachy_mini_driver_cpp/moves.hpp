@@ -30,7 +30,8 @@
 namespace reachy_mini_driver
 {
 
-constexpr const char * kDefaultDataset = "pollen-robotics/reachy-mini-emotions-library";
+// Pollen's emotions library, as installed by reachy_mini_expressions_data
+constexpr const char * kDefaultDataset = "package://reachy_mini_expressions_data/emotions";
 
 struct MoveSample
 {
@@ -65,7 +66,8 @@ public:
     const std::string & dataset = "");
   /// Names of the moves of `dataset` (default library if empty), sorted. Throws std::runtime_error.
   std::vector<std::string> names(const std::string & dataset = "") const;
-  /// Directory of a dataset: as is if it is a directory, else the HuggingFace cache snapshot.
+  /// Directory of a dataset: package://<package>/<dir> through the ament index, a directory
+  /// as is, else (org/name) the HuggingFace cache snapshot.
   static std::string resolveDataset(const std::string & dataset);
 
 private:
