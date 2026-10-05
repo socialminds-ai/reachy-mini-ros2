@@ -2,6 +2,50 @@
 Changelog for package reachy_mini_camera_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Camera driver: shipped calibrations, chosen by sensor mode
+  calibration_wide.yaml and calibration_narrow.yaml (IMX708 wide, 1280x720,
+  focus at 1.5 m), measured on reachy-mini-1 with a 9x7 / 25 mm checkerboard:
+  - wide: rational model (plumb_bob could not reach the image corners), 136
+  views, RMS 0.507 px, 102.8 x 67.4 deg;
+  - narrow: plumb_bob, 104 views, 76.0 x 47.7 deg.
+  With an empty camera_info_url (the default) and libcamera, the node loads
+  the file of the sensor mode actually in use: wide when field_of_view is
+  wide or the width is 1920 or more (libcamera then uses the full sensor),
+  narrow otherwise. It reloads it when the camera restarts with another mode;
+  other 16:9 sizes are scaled as before. A camera_info_url still overrides.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Camera driver: field_of_view parameter (wide or narrow sensor mode)
+  libcamera picked the IMX708 sensor mode from the output size: 1280x720 came
+  from the 1536x864 central crop (about 77 deg), 1920x1080 from the full
+  sensor (about 102 deg), so the field of view, and the calibration, changed
+  with the resolution. field_of_view pins it: 'narrow' keeps the crop (width
+  up to 1536), 'wide' (the default) asks the ISP for a second, discarded
+  1920x1080 stream, which makes libcamera use the full sensor. libcamerasrc
+  0.7 can neither select the mode nor output the packed raw stream that would
+  set it.
+  Tested on the robot at 1280x720: both modes stream at 30 fps (camera_node
+  about 14 % of a core in wide, 11 % in narrow).
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Camera driver: set_camera_info in the camera's namespace
+  camera_info_manager names its service ns + "/set_camera_info", and the
+  namespace defaults to empty: the service was /set_camera_info, where
+  camera_calibration does not find it. It is now /camera/set_camera_info,
+  next to camera_info.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Camera driver: printable calibration checkerboard
+  A4 landscape, 9x7 squares of 25 mm (8x6 inner corners), with its size,
+  the matching cameracalibrator arguments and a 100 mm bar to check the
+  print scale.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Camera driver: fixed focus at 1.5 m by default
+  autofocus_mode now defaults to manual, with lens_position at 0.667 dioptre
+  (1.5 m): the focal length moves with the lens, so a fixed focus keeps a
+  camera calibration valid. Both stay changeable at runtime.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.0.0 (2026-10-02)
 ------------------
 
