@@ -159,7 +159,7 @@ repositories, both started by `driver.launch.py`:
 | `mic_frontend` | publishes | `/audio/head/raw` (`audio_common_msgs/AudioData`, 16 kHz mono S16LE, 10 ms chunks), `/audio/head/info`, `/audio/head/voice_detected` (`std_msgs/Bool`) |
 | `pw_audio_play` | plays | `/audio/out` (`audio_common_msgs/AudioData`, in the format given on `/audio/out/info`); `/pw_audio_play/stop`, `/pw_audio_play/is_playing` |
 
-On the robot, `docker/pipewire/` creates two PipeWire nodes over the audio card,
+On the robot, the bootstrap package creates two PipeWire nodes over the audio card,
 `reachy_mini_mic` and `reachy_mini_speaker`, through the same ALSA sharing
 devices as the daemon, so they work whether the daemon runs or not (README.md,
 section 1.4).
@@ -221,7 +221,7 @@ source install/setup.bash
 ### The driver as a service, native installation
 
 For a robot where ROS is installed natively (not the container of README.md,
-whose unit is `docker/reachy-mini-driver-docker.service`), the `reachy_mini`
+whose unit is `reachy-mini-driver-docker.service`, from the bootstrap package), the `reachy_mini`
 metapackage ships `share/reachy_mini/systemd/reachy-mini-driver.service`, which
 runs `ros2 launch reachy_mini driver.launch.py`. It declares
 `Conflicts=reachy-mini-daemon.service`, so systemd never runs the driver and the

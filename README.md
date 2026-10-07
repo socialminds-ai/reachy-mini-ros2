@@ -38,7 +38,7 @@ pick which one starts at boot.
 
 ## 1. Installation: turn a Reachy Mini into a ROS robot
 
-Everything happens over ssh; nothing is flashed. Allow 20 minutes plus the image
+Everything happens over ssh; nothing is flashed. Allow 10 minutes plus the image
 download.
 
 ### 1.1 What you need
@@ -51,7 +51,7 @@ download.
 * The `pollen` account on the robot, which has `sudo`. Its default password
   is `root`.
 
-### 1.2 Log in, fix the clock, get this repository
+### 1.2 Log in and check the clock
 
 ```sh
 ssh pollen@reachy-mini.local
@@ -63,128 +63,111 @@ and `apt` then refuses the repositories ("Not live until ..."). The clock must
 also agree with your machine's to within 500 ms, otherwise zenoh rejects the
 robot's messages.
 
-The stock NTP servers (the Debian pool) are blocked on some networks, and
-`timesyncd` then never synchronises. Point it at a server that answers, here
-`hora.roa.es` (Spain's official time):
+The package of section 1.3 sets up an NTP server that answers on networks
+where the Debian pool is blocked (the IIIA's included), but `apt` must work to
+install it. If the date is wrong, copy your machine's clock first (accurate to
+about a second, enough for `apt`; NTP does the rest once the package is in):
 
 ```sh
-# on the robot
-sudo mkdir -p /etc/systemd/timesyncd.conf.d
-printf '[Time]\nNTP=hora.roa.es\nFallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org\n' \
-  | sudo tee /etc/systemd/timesyncd.conf.d/lab.conf
-sudo systemctl restart systemd-timesyncd
-timedatectl | grep synchronized          # must say "yes" after a few seconds
+# from your machine
+ssh -t pollen@reachy-mini.local "sudo date -u -s '$(date -u)'"
 ```
 
 Your own machine's clock must be right too (a container uses its host's clock).
-If no NTP server is reachable at all, copy your machine's clock as a stopgap
-(accurate to about a second only):
-`ssh -t pollen@reachy-mini.local "sudo date -u -s '$(date -u)'"`.
 
-Then clone this repository on the robot; the rest of the installation uses the
-files of its `docker/` directory:
+### 1.3 Install the bootstrap package
 
-```sh
-git clone https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy-mini-driver.git
-```
-
-### 1.3 Docker, the ROS image and the container
-
-Three steps: install Docker, get the ROS image, and have systemd keep the
-container running.
-
-> 💡 **Tip: one script instead of the steps below.**
-> `docker/provision.sh` does all of this section, and the clock setup of
-> section 1.2, in one go (it is idempotent). Run it *instead of* the manual
-> steps below, not before them:
->
-> ```sh
-> sudo bash reachy-mini-driver/docker/provision.sh
-> ```
->
-> It pulls the pre-built image from the IIIA registry if root is logged in to
-> it (install Docker and run `sudo docker login gitlab.iiia.csic.es:5005`
-> first), and otherwise builds it on the robot (about an hour). Then go on to
-> section 1.4.
-
-**Docker**:
+[reachy-mini-ros2-bootstrap](https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy_mini_ros2_bootstrap)
+is a Debian package that sets up the robot for ROS: it installs Docker,
+configures PipeWire and NTP, and installs the systemd unit that keeps the ROS
+container running, pulling its image on first start. It comes from the
+SocialMinds apt repository. On the robot:
 
 ```sh
+# the SocialMinds apt repository
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://socialminds.doc.iiia.csic.es/apt/public.key \
+  | gpg --dearmor | sudo tee /etc/apt/keyrings/socialminds.gpg > /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/socialminds.gpg] https://socialminds.doc.iiia.csic.es/apt/ lyrical main" \
+  | sudo tee /etc/apt/sources.list.d/socialminds.list
+
 sudo apt update
-sudo apt install -y docker.io
-sudo systemctl enable --now docker
-sudo usermod -aG docker pollen          # then log out and in again
+sudo apt install reachy-mini-ros2-bootstrap
 ```
 
-**The image**, either pulled or built.
+> The `lyrical` distribution of that repository is built for Ubuntu. The
+> bootstrap package only depends on Debian packages, so it installs on the
+> robot's Debian; install nothing else from that repository on the robot (the
+> ROS packages live in the container).
 
-The pre-built image (built by this repository's `robot-image` pipeline job) is
-in the IIIA GitLab registry, which is currently only open to IIIA staff; this
-may change. Pulling it takes minutes:
+The image is in the IIIA GitLab registry, currently only open to IIIA staff.
+Log in once, with your GitLab credentials or a deploy token (`read_registry`
+scope); the container then starts by itself within a minute:
 
 ```sh
-docker login gitlab.iiia.csic.es:5005          # your GitLab credentials or a deploy token
-docker pull gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical
-docker tag gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical reachy-mini-ros:lyrical
+sudo docker login gitlab.iiia.csic.es:5005
+journalctl -u reachy-mini-ros -f          # the first start pulls the image (a few minutes)
 ```
 
-Anyone can instead build the same image on the robot from this repository
-(about an hour, needs Internet):
+The end of the installation prints what to do next (and
+`sh /usr/share/reachy-mini-ros2-bootstrap/banner` again later).
 
-```sh
-docker build -t reachy-mini-ros:lyrical reachy-mini-driver/docker/
-```
+What the package sets up:
 
-It contains ROS 2 Lyrical (Ubuntu 26.04, `ros-core`), `rmw_zenoh_cpp` with a
-router listening on port 7447, the `reachy_mini` packages of this repository
-and the audio nodes from the lab's apt repository: what the robot needs to run,
-kept small since the SD card only has room for one image.
-
-The `-full` variant (`reachy-mini-ros:lyrical-full` in the registry, or
-`--build-arg FULL=1`) adds the build tools to build packages in the container
-(section 2.4) and Pollen's Python SDK, for the Python driver (`lang:=python`).
-
-**The container**, kept running by systemd (`docker/reachy-mini-ros.service`):
-
-```sh
-sudo cp reachy-mini-driver/docker/reachy-mini-ros.service /etc/systemd/system/
-mkdir -p ~/ros
-sudo systemctl daemon-reload
-sudo systemctl enable --now reachy-mini-ros
-```
-
-The unit starts the container with `--network host` (the zenoh router and the
-nodes use the robot's IP; the Pollen daemon's API on `localhost:8000` stays
-reachable), the servo port `/dev/ttyAMA3`, the camera devices (`--privileged`,
-`/run/udev`), PipeWire's socket (`/run/user/1000`), the daemon's cache of the
-emotions library (read-only), and `~/ros` as `/root/ros`, a workspace for
-packages you build from source.
+* `reachy-mini-ros.service` keeps the container running, with `--network host`
+  (the zenoh router and the nodes use the robot's IP; the Pollen daemon's API
+  on `localhost:8000` stays reachable), the servo port `/dev/ttyAMA3`, the
+  camera devices (`--privileged`, `/run/udev`), PipeWire's socket
+  (`/run/user/1000`), the daemon's cache of the emotions library (read-only),
+  and `~/ros` as `/root/ros`, a workspace for packages you build from source.
+* PipeWire starts at boot (`pollen` lingers), with the robot's two audio nodes
+  (section 1.4).
+* `reachy-mini-driver-docker.service`, disabled: ROS as the default at boot
+  (section 1.5).
+* NTP from `hora.roa.es` (`/etc/systemd/timesyncd.conf.d/reachy-mini.conf`).
 
 The container only starts nodes when asked to (section 2.1). In it, `ros2` must
 always go through `bash`, which sources ROS:
 `docker exec reachy-mini-ros bash -c "ros2 ..."`, or a shell with
 `docker exec -it reachy-mini-ros bash`.
 
-### 1.4 Audio: PipeWire
+**The image.** Built from [`docker/Dockerfile`](docker/Dockerfile) by this
+repository's `robot-image` pipeline job, tagged with the release (e.g.
+`reachy-mini-ros:1.2.2`); each release of the bootstrap package pins one. It
+contains ROS 2 Lyrical (Ubuntu 26.04, `ros-core`), `rmw_zenoh_cpp` with a router
+listening on port 7447, the `reachy_mini` packages of this repository and the
+audio nodes from the lab's apt repository: what the robot needs to run, kept
+small since the SD card only has room for one image.
 
-The microphones and the speaker go through PipeWire, which Raspberry Pi OS
-already has but only starts when someone logs in. Make it start at boot and give
-it the robot's two audio nodes. They open the card through the same ALSA sharing
-devices as the daemon, so audio works whether the daemon runs or not.
+The `-full` variant adds the build tools, to build packages in the container
+(section 2.4), and Pollen's Python SDK, for the Python driver (`lang:=python`).
+It is about 0.6 GB bigger. To switch to it (and back, by removing the line):
 
 ```sh
-sudo loginctl enable-linger pollen
-mkdir -p ~/.config/pipewire/pipewire.conf.d ~/.config/wireplumber/wireplumber.conf.d
-cp reachy-mini-driver/docker/pipewire/reachy-mini-audio.conf ~/.config/pipewire/pipewire.conf.d/
-cp reachy-mini-driver/docker/pipewire/51-reachy-mini.conf ~/.config/wireplumber/wireplumber.conf.d/
-systemctl --user restart pipewire wireplumber pipewire-pulse
-wpctl status      # Sinks: "Reachy Mini speaker", Sources: "Reachy Mini microphones"
-sudo systemctl restart reachy-mini-ros     # so the container sees PipeWire's socket
+echo IMAGE_SUFFIX=-full | sudo tee -a /etc/default/reachy-mini-ros
+sudo systemctl restart reachy-mini-ros
 ```
 
-`51-reachy-mini.conf` keeps WirePlumber off the audio card (PipeWire uses it
-through the sharing devices only) and off the video devices (a PipeWire camera
-monitor would hold the camera).
+Without access to the registry, build the image on the robot (about an hour,
+needs Internet) and point the unit at it:
+
+```sh
+git clone https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy-mini-driver.git
+docker build -t reachy-mini-ros:local reachy-mini-driver/docker/    # --build-arg FULL=1 for -full
+echo IMAGE=reachy-mini-ros:local | sudo tee -a /etc/default/reachy-mini-ros
+sudo systemctl restart reachy-mini-ros
+```
+
+### 1.4 Audio: PipeWire and the speaker volume
+
+The microphones and the speaker go through PipeWire, configured by the package:
+two nodes open the card through the same ALSA sharing devices as the daemon, so
+audio works whether the daemon runs or not, and WirePlumber keeps off the audio
+card and off the camera (a PipeWire camera monitor would hold it). Check them:
+
+```sh
+wpctl status      # Sinks: "Reachy Mini speaker", Sources: "Reachy Mini microphones"
+```
 
 Then set the speaker volume. The card has two gain stages, ALSA controls `PCM,0`
 and `PCM,1`; the daemon puts `PCM,1` at 100% when it starts and drives `PCM,0`
@@ -209,16 +192,13 @@ next to the daemon, and you hand the robot over to ROS when you need it
 
 **Option B: make ROS the default.** The robot boots straight into the ROS
 driver (servos, model, camera, audio) and the daemon no longer starts. The
-`docker/reachy-mini-driver-docker.service` unit runs
-`ros2 launch reachy_mini driver.launch.py` in the container; it declares
-`Conflicts=reachy-mini-daemon.service`, so systemd never runs both, and stops the
-driver with SIGINT so that the robot goes to its sleep pose and releases the
-motors.
+`reachy-mini-driver-docker` unit runs `ros2 launch reachy_mini driver.launch.py`
+in the container; it declares `Conflicts=reachy-mini-daemon.service`, so systemd
+never runs both, and stops the driver with SIGINT so that the robot goes to its
+sleep pose and releases the motors.
 
 ```sh
-sudo cp reachy-mini-driver/docker/reachy-mini-driver-docker.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl disable reachy-mini-daemon        # otherwise the two race at boot
+sudo systemctl disable --now reachy-mini-daemon        # otherwise the two race at boot
 sudo systemctl enable --now reachy-mini-driver-docker
 ```
 
@@ -236,55 +216,28 @@ sudo systemctl enable --now reachy-mini-daemon
 
 ### 1.6 Updating, and going back to stock
 
-The newest driver packages come with a newer image: pull it from the registry,
-or rebuild it, then remove the previous image and restart the container.
-
-With access to the registry:
-
 ```sh
-docker pull gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical
-docker tag gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical reachy-mini-ros:lyrical
+sudo apt update && sudo apt upgrade
 ```
 
-Otherwise, rebuild it (`--no-cache` matters: without it Docker reuses the cached
-`apt install` layers, with the old packages):
-
-```sh
-git -C reachy-mini-driver pull
-docker build --no-cache -t reachy-mini-ros:lyrical reachy-mini-driver/docker/
-```
-
-Then, in both cases:
-
-```sh
-docker image prune -f                  # remove the previous image
-docker builder prune -f                # and the build cache, after a rebuild
-sudo systemctl restart reachy-mini-ros
-```
-
-Do not skip the prune: the previous image stays on the card, untagged, after a
-pull or a rebuild. The robot's root partition is about 14 GB and an image about
-4 GB, so two or three of them fill it up, and then the container can no longer
-start. `docker images` should list a single `reachy-mini-ros` image (under two
-names if pulled) and `docker system df` about 4 GB. If the card is already too
-full for the update, remove the current image first, then update and restart as
-above:
-
-```sh
-sudo systemctl stop reachy-mini-ros
-docker rmi reachy-mini-ros:lyrical
-docker rmi gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical   # if pulled
-docker image prune -f
-docker builder prune -f
-```
+A new release of the bootstrap package pins the image of the newest driver
+release. Upgrading to it restarts the container, which removes the previous
+image (the SD card has no room for two), then pulls the new one: the robot has
+no ROS while it downloads, a few minutes (`journalctl -u reachy-mini-ros -f`).
+Upgrades that do not change the image leave the running container alone.
 
 `docker exec reachy-mini-ros bash -c "apt update && apt install -y socialminds-ros-lyrical-reachy-mini"`
-updates them in place, but only until the next restart of the container, which
-is started with `--rm`: anything installed by hand in it is lost.
+updates the packages in the container, but only until its next restart (it is
+started with `--rm`: anything installed by hand in it is lost).
 
-Back to the stock robot: switch to option A (above), then optionally
-`sudo systemctl disable --now reachy-mini-ros` to stop the container. Docker and
-the image can stay; they do not interfere with the daemon.
+Back to the stock robot: switch to option A (above), then
+`sudo apt purge reachy-mini-ros2-bootstrap` removes the units and the
+configuration, and `docker rmi` the image (about 1.5 GB). Docker can stay; it
+does not interfere with the daemon.
+
+Robots set up before the package (with `docker/provision.sh` or the manual
+steps) can install it as above: it moves the previous unit files and PipeWire
+configuration aside (see its README).
 
 ## 2. Usage
 
@@ -504,15 +457,19 @@ colcon test && colcon test-result --verbose
 
 zenoh logs "incoming timestamp ... exceeding delta 500ms is rejected"
 : The robot's and your machine's clocks differ by more than 500 ms. Check
-  `timedatectl | grep synchronized` on both and set up NTP as in section 1.2.
+  `timedatectl | grep synchronized` on both (section 1.2; on the robot, the
+  NTP server is set in `/etc/systemd/timesyncd.conf.d/reachy-mini.conf`).
 
-`docker pull` says "unauthorized"
-: The registry needs a login, and is currently only open to IIIA staff: build
-  the image on the robot instead (section 1.3).
+`journalctl -u reachy-mini-ros` says "cannot pull", or `docker pull` "unauthorized"
+: The registry needs a login (`sudo docker login gitlab.iiia.csic.es:5005`), and
+  is currently only open to IIIA staff: build the image on the robot instead
+  (section 1.3).
 
 "no space left on device", or `df -h /` on the robot shows the card full
-: Old images left behind by updates: `docker system df` shows their size, and
-  `docker image prune -f` removes the untagged ones (section 1.6).
+: Old images left behind: `docker system df` shows their size. The bootstrap
+  package removes the other `reachy-mini-ros` images before pulling one, but not
+  untagged ones or a build cache: `docker image prune -f` and
+  `docker builder prune -f` (after building on the robot).
 
 Your machine sees no nodes
 : Router not connected: check `ZENOH_CONFIG_OVERRIDE` and that TCP 7447 is
@@ -546,14 +503,17 @@ The camera driver logs "cannot start the camera" and retries
   gives exactly that; the other port always fails, there being one camera).
 
 `wpctl status` lists no Reachy Mini source or sink
-: The configuration files of section 1.4 are missing, or PipeWire was not
-  restarted after copying them. `journalctl --user -u pipewire` says why a node
-  failed to open.
+: The bootstrap package is not installed, a file of the same name in
+  `~/.config/pipewire/pipewire.conf.d/` or `~/.config/wireplumber/wireplumber.conf.d/`
+  overrides its configuration, or PipeWire was not restarted since
+  (`systemctl --user restart pipewire wireplumber`). `journalctl --user -u
+  pipewire` says why a node failed to open.
 
 mic_frontend or pw_audio_play: "cannot connect to the PipeWire daemon"
 : PipeWire is not running (`loginctl show-user pollen | grep Linger` must say
-  yes), or the container was started without `/run/user/1000` (reinstall
-  `docker/reachy-mini-ros.service` from this repository).
+  yes), or the container was started without `/run/user/1000`: a
+  `reachy-mini-ros.service` of your own in `/etc/systemd/system` overrides the
+  package's (`systemctl cat reachy-mini-ros` shows which one runs).
 
 The speaker is barely audible
 : The ALSA volumes were not set (section 1.4): `amixer -c 0 sget PCM,0` and
@@ -575,4 +535,4 @@ The speaker is barely audible
 | `reachy_mini_msgs` | Interfaces: `msg/AntennasTarget`. |
 | `reachy_mini_camera_driver` | The camera (IMX708 wide, CSI) through libcamera, H.264 from the Pi's hardware encoder. |
 | `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured for `robot_state_publisher`, and the RViz configuration (model, TF, camera). |
-| `docker/` | The robot's ROS 2 container image, its systemd units, the PipeWire configuration and `provision.sh` (not a ROS package). |
+| `docker/` | The robot's ROS 2 container image (not a ROS package). Its systemd units, PipeWire configuration and `provision.sh` are those of the manual installation, superseded by [reachy-mini-ros2-bootstrap](https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy_mini_ros2_bootstrap). |
