@@ -3,7 +3,7 @@
 <package format="3">
   <name>reachy_mini_camera_driver</name>
   <version>1.2.1</version>
-  <description>Camera driver for the Reachy Mini: captures the IMX708 CSI camera through libcamera, encodes H.264 on the Raspberry Pi hardware encoder, and publishes the packets for ffmpeg_image_transport (and Foxglove), plus raw frames on demand. Resolution, frame rate and bitrate are dynamic parameters.</description>
+  <description>Camera driver for the Reachy Mini: captures the IMX708 CSI camera through libcamera, encodes H.264 on the Raspberry Pi hardware encoder, and publishes the packets for ffmpeg_image_transport subscribers (and Foxglove), plus raw frames on demand. Resolution, frame rate and bitrate are dynamic parameters.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
 
@@ -15,15 +15,22 @@
   <depend>camera_info_manager</depend>
   <depend>ffmpeg_image_transport_msgs</depend>
   <depend>foxglove_msgs</depend>
-  <depend>libgstreamer1.0-dev</depend>
-  <depend>libgstreamer-plugins-base1.0-dev</depend>
+  <!-- Build only: the package gets the runtime libraries from their shlibs.
+       The headers would bring ~60 MB into the robot image. -->
+  <build_depend>libgstreamer1.0-dev</build_depend>
+  <build_depend>libgstreamer-plugins-base1.0-dev</build_depend>
 
-  <!-- v4l2h264enc (plugins-good), h264parse (plugins-bad). libcamerasrc comes
-       from gstreamer1.0-libcamera and libcamera-ipa, which have no rosdep key:
-       the robot image (docker/Dockerfile) installs them. -->
+  <!-- appsink, videoconvert, videoscale (plugins-base), v4l2h264enc
+       (plugins-good), h264parse (plugins-bad). libcamerasrc comes from
+       gstreamer1.0-libcamera and libcamera-ipa, which have no rosdep key: the
+       robot image (docker/Dockerfile) installs them.
+       No ffmpeg_image_transport: the node publishes the encoded packets with
+       a plain publisher (ffmpeg_image_transport_msgs). The plugin decodes
+       them, on the subscribers' side (RViz on your machine), and would bring
+       cv_bridge and all of OpenCV (~950 MB) into the robot image. -->
+  <exec_depend>gstreamer1.0-plugins-base</exec_depend>
   <exec_depend>gstreamer1.0-plugins-good</exec_depend>
   <exec_depend>gstreamer1.0-plugins-bad</exec_depend>
-  <exec_depend>ffmpeg_image_transport</exec_depend>
   <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
