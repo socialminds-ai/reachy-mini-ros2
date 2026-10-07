@@ -135,10 +135,14 @@ Anyone can instead build the same image on the robot from this repository
 docker build -t reachy-mini-ros:lyrical reachy-mini-driver/docker/
 ```
 
-It contains ROS 2 Lyrical (Ubuntu 26.04), `rmw_zenoh_cpp` with a router
-listening on port 7447, the `reachy_mini` packages of this repository and the
-audio nodes from the lab's apt repository, and Pollen's Python SDK (for the
-optional Python driver).
+It contains ROS 2 Lyrical (Ubuntu 26.04, `ros-core`), `rmw_zenoh_cpp` with a
+router listening on port 7447, the `reachy_mini` packages of this repository
+and the audio nodes from the lab's apt repository: what the robot needs to run,
+kept small since the SD card only has room for one image.
+
+The `-full` variant (`reachy-mini-ros:lyrical-full` in the registry, or
+`--build-arg FULL=1`) adds the build tools to build packages in the container
+(section 2.4) and Pollen's Python SDK, for the Python driver (`lang:=python`).
 
 **The container**, kept running by systemd (`docker/reachy-mini-ros.service`):
 
@@ -305,7 +309,8 @@ stack.
 
 `driver.launch.py` starts the whole robot: the servo driver (C++),
 `robot_state_publisher` with the robot model, the camera and the audio nodes.
-Its arguments: `lang:=python` for the Python driver, `camera:=false`,
+Its arguments: `lang:=python` for the Python driver (needs the `-full` image,
+section 1.3), `camera:=false`,
 `audio:=false`, `description:=false` to leave parts out, `serial_port:=fake` for a
 simulated servo bus, `params_file:=...` for other driver parameters (see
 REFERENCE.md).
@@ -437,7 +442,8 @@ the camera and audio topics are listed in [REFERENCE.md](REFERENCE.md).
 
 Nodes that must run on the robot (raw camera frames, low latency) go in the
 container: build them in `~/ros` on the robot (`/root/ros` in the container,
-which sources `/root/ros/install/setup.bash` when it exists):
+which sources `/root/ros/install/setup.bash` when it exists). Building needs
+the `-full` image (section 1.3), which has colcon and the compilers:
 
 ```sh
 docker exec -it reachy-mini-ros bash

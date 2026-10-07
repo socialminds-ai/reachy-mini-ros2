@@ -21,6 +21,7 @@ stages:
 # $CI_REGISTRY_IMAGE/reachy-mini-ros:<latest release tag, e.g. 1.2.1>, the tag
 # that reachy-mini-ros2-bootstrap pins (its files/image.env). Run it on the
 # release commit, so that the versioned tag matches the release.
+# Also the same two with -full: build tools and the Python SDK (docker/Dockerfile).
 robot-image:
   stage: image
   image: docker:27
@@ -43,6 +44,11 @@ robot-image:
     - docker buildx build --platform linux/arm64
         -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical"
         -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION"
+        --push docker/
+    # same layers + build tools and the Python SDK (Dockerfile, FULL)
+    - docker buildx build --platform linux/arm64 --build-arg FULL=1
+        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical-full"
+        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION-full"
         --push docker/
   rules:
     - if: $CI_COMMIT_TAG
