@@ -2,6 +2,19 @@
 Changelog for package reachy_mini_camera_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* camera_driver: drop ffmpeg_image_transport and the GStreamer headers from the runtime dependencies
+  The node publishes its H.264 packets with a plain publisher
+  (ffmpeg_image_transport_msgs): the ffmpeg_image_transport plugin only
+  decodes them, on the subscribers' side. As an exec_depend, it brought
+  cv_bridge and all of OpenCV (VTK, OpenMPI, GDAL, Qt5: ~950 MB) into the
+  robot image. The GStreamer -dev packages become build-only (their
+  runtime libraries come from shlibs), and gstreamer1.0-plugins-base
+  (appsink, videoconvert, videoscale) an explicit exec_depend.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.2.1 (2026-10-05)
 ------------------
 

@@ -2,6 +2,9 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.2.1 (2026-10-05)
 ------------------
 * reachy_mini: depend on reachy_mini_expressions_data

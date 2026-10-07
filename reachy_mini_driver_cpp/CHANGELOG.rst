@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.2.1 (2026-10-05)
 ------------------
 * Drivers: clear error, with the serial_port:=fake hint, when the servo bus cannot be opened
