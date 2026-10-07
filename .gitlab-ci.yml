@@ -17,7 +17,10 @@ stages:
 
 # The ROS 2 container that runs on the robot (arm64, built under QEMU: slow,
 # so it is a MANUAL job; run it from the pipeline page after changing docker/).
-# Result: $CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical
+# Result: $CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical, and
+# $CI_REGISTRY_IMAGE/reachy-mini-ros:<latest release tag, e.g. 1.2.1>, the tag
+# that reachy-mini-ros2-bootstrap pins (its files/image.env). Run it on the
+# release commit, so that the versioned tag matches the release.
 robot-image:
   stage: image
   image: docker:27
@@ -27,14 +30,24 @@ robot-image:
   needs: []
   variables:
     DOCKER_BUILDKIT: "1"
+    GIT_DEPTH: 0   # all the history, so that git describe finds the latest tag
   before_script:
+    - apk add --no-cache git
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - docker context create tls-ctx || true
     - docker buildx create tls-ctx --use --name multiarch --driver docker-container || docker buildx use multiarch
   script:
+    - VERSION=${CI_COMMIT_TAG:-$(git describe --tags --abbrev=0)}
+    - echo "image version $VERSION"
     - docker buildx build --platform linux/arm64
-        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical" --push docker/
+        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical"
+        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION"
+        --push docker/
   rules:
+    - if: $CI_COMMIT_TAG
+      when: manual
+      allow_failure: true
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
