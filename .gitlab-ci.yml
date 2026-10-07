@@ -22,6 +22,7 @@ stages:
 # that reachy-mini-ros2-bootstrap pins (its files/image.env). Run it on the
 # release commit, so that the versioned tag matches the release.
 # Also the same two with -full: build tools and the Python SDK (docker/Dockerfile).
+# Then bootstrap-pin has reachy-mini-ros2-bootstrap pin the versioned tag.
 robot-image:
   stage: image
   image: docker:27
@@ -50,6 +51,10 @@ robot-image:
         -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical-full"
         -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION-full"
         --push docker/
+    - echo "REACHY_MINI_ROS_TAG=$VERSION" > robot-image.env
+  artifacts:
+    reports:
+      dotenv: robot-image.env   # REACHY_MINI_ROS_TAG, for bootstrap-pin
   rules:
     - if: $CI_COMMIT_TAG
       when: manual
@@ -60,3 +65,21 @@ robot-image:
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
       allow_failure: true
+
+# Once the images are pushed: a pipeline of reachy-mini-ros2-bootstrap that, if
+# the tag is not the one it pins already (files/image.env), pins it, adds a
+# changelog entry and tags a new release (its pin-image job). Runs as the user
+# who started robot-image, who needs to be allowed to run pipelines on the
+# bootstrap's main branch.
+bootstrap-pin:
+  stage: image
+  needs: [robot-image]
+  variables:
+    REACHY_MINI_ROS_TAG: $REACHY_MINI_ROS_TAG   # from robot-image's dotenv
+  trigger:
+    project: socialminds/robots/reachymini/reachy_mini_ros2_bootstrap
+    branch: main
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
