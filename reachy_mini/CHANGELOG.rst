@@ -2,8 +2,8 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.0 (2026-10-07)
+------------------
 * look_at: resolve the target once, and add the TRACKING policy
   A target expressed in a frame that moves with the gaze (head, camera, or
   the body, turned by the automatic body yaw of the IK) was re-transformed
