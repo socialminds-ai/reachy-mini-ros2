@@ -2,6 +2,24 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* look_at: resolve the target once, and add the TRACKING policy
+  A target expressed in a frame that moves with the gaze (head, camera, or
+  the body, turned by the automatic body yaw of the IK) was re-transformed
+  into base_link at every tick: it ran away from the head as it turned,
+  and the head chased it. With an empty policy and GLANCE, the target is
+  now transformed once, when the goal is received, and stays fixed; an
+  unresolvable frame aborts the goal with ROS_EBADMSG.
+  Following a moving frame is now the TRACKING policy (interaction_skills
+  >= 1.9.1): the target is re-evaluated every tick, and the goal runs
+  until cancelled, replaced by another gaze command (ROS_EINTR), or lost
+  for tracking_lost_timeout seconds (ROS_EOTHER). Tracking one of the
+  robot's own frames (URDF links from /robot_description, head, rods)
+  other than base_frame cannot settle and logs a loud warning.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.2.2 (2026-10-07)
 ------------------
 

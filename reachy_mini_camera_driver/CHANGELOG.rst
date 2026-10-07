@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_camera_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.2.2 (2026-10-07)
 ------------------
 * camera_driver: drop ffmpeg_image_transport and the GStreamer headers from the runtime dependencies
