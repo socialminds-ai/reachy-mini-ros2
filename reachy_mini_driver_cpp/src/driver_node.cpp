@@ -20,6 +20,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <regex>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -134,6 +135,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   declare_parameter("base_frame", "base_link");
   declare_parameter("skills_namespace", "/skill");
   declare_parameter("glance_duration", 2.0);
+  declare_parameter("tracking_lost_timeout", 1.0);
   declare_parameter("motion_initial_goto", 0.5);
   // speed limits: smooth ones for reactive targets and gotos, safety caps during motions
   auto declare_limit = [this](const std::string & part, double velocity, double acceleration,
@@ -154,6 +156,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   base_frame_ = get_parameter("base_frame").as_string();
   extra_datasets_ = get_parameter("extra_datasets").as_string_array();
   glance_duration_ = get_parameter("glance_duration").as_double();
+  tracking_lost_timeout_ = get_parameter("tracking_lost_timeout").as_double();
   motion_initial_goto_ = get_parameter("motion_initial_goto").as_double();
 
   const auto port = get_parameter("serial_port").as_string();
@@ -205,6 +208,21 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
     "~/target_antennas", 10, [this](const reachy_mini_msgs::msg::AntennasTarget & msg) {
       std::lock_guard<std::mutex> lock(mutex_);
       target_antennas_ = {msg.right, msg.left};
+    });
+  robot_frames_ = {"head"};
+  for (int i = 1; i <= 6; ++i) {
+    robot_frames_.insert("rod_" + std::to_string(i));
+  }
+  description_sub_ = create_subscription<std_msgs::msg::String>(
+    "/robot_description", rclcpp::QoS(1).transient_local().reliable(),
+    [this](const std_msgs::msg::String & msg) {
+      static const std::regex link_re("<link\\s+name\\s*=\\s*\"([^\"]+)\"");
+      std::lock_guard<std::mutex> lock(mutex_);
+      for (std::sregex_iterator it(msg.data.begin(), msg.data.end(), link_re), end; it != end;
+      ++it)
+      {
+        robot_frames_.insert((*it)[1].str());
+      }
     });
   body_yaw_sub_ = create_subscription<std_msgs::msg::Float64>(
     "~/target_body_yaw", 10, [this](const std_msgs::msg::Float64 & msg) {
@@ -462,25 +480,52 @@ void DriverNode::applyGaze()
 {
   if (gaze_->glancing && std::chrono::steady_clock::now() >= gaze_->glance_end) {
     if (gaze_->previous) {
-      gaze_ = Gaze{*gaze_->previous, false, {}, std::nullopt};
+      gaze_ = Gaze{*gaze_->previous, false, {}, std::nullopt};   // back to the previous gaze
+      gaze_->target.last_seen = std::chrono::steady_clock::now();
     } else {
       gaze_.reset();
       startGoto(kInitHeadPose, target_antennas_, target_body_yaw_, 1.0);
       return;
     }
   }
-  geometry_msgs::msg::PointStamped in_base;
-  try {
-    auto target = gaze_->target;
-    target.header.stamp = rclcpp::Time(0);   // latest available transform
-    in_base = tf_buffer_->transform(target, base_frame_, tf2::durationFromSec(0.0));
-  } catch (const tf2::TransformException & e) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000, "look_at: cannot transform target from '%s': %s",
-      gaze_->target.header.frame_id.c_str(), e.what());
-    return;
+  geometry_msgs::msg::PointStamped in_base = gaze_->target.point;
+  if (gaze_->target.tracking) {
+    // tracking: follow the target frame as it moves; lost if it cannot be resolved for a while
+    auto & target = gaze_->target;
+    if (target.lost) {
+      return;
+    }
+    std::string error;
+    const auto resolved = resolveGazeTarget(target.point, 0.0, error);
+    const auto now = std::chrono::steady_clock::now();
+    if (!resolved) {
+      if (std::chrono::duration<double>(now - target.last_seen).count() > tracking_lost_timeout_) {
+        RCLCPP_WARN(get_logger(), "%s", error.c_str());
+        target.lost = true;
+      }
+      return;
+    }
+    target.last_seen = now;
+    in_base = *resolved;
   }
+  // otherwise, the target was resolved in base_frame_ once and for all, at goal reception:
+  // its frame may move with the head (e.g. 'head' itself), and re-evaluating it as the
+  // head turns would make the target run away from the gaze.
   target_pose_ = lookPose(Eigen::Vector3d(in_base.point.x, in_base.point.y, in_base.point.z));
+}
+
+std::optional<geometry_msgs::msg::PointStamped> DriverNode::resolveGazeTarget(
+  const geometry_msgs::msg::PointStamped & target, double timeout, std::string & error) const
+{
+  try {
+    auto t = target;
+    t.header.stamp = rclcpp::Time(0);   // latest available transform
+    return tf_buffer_->transform(t, base_frame_, tf2::durationFromSec(timeout));
+  } catch (const tf2::TransformException & e) {
+    error = "look_at: cannot transform target from '" + target.header.frame_id + "' to '" +
+      base_frame_ + "': " + e.what();
+    return std::nullopt;
+  }
 }
 
 Pose DriverNode::lookPose(const Eigen::Vector3d & point) const
@@ -784,16 +829,29 @@ void DriverNode::executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<L
     handle->succeed(result);
     return;
   }
-  if (policy == LookAt::Goal::GLANCE || policy.empty()) {
+  if (policy == LookAt::Goal::GLANCE || policy == LookAt::Goal::TRACKING || policy.empty()) {
     if (!has_target) {
       result->result = makeResult(Result::ROS_EBADMSG, "look_at: target.header.frame_id is empty");
       handle->abort(result);
       return;
     }
+    if (policy == LookAt::Goal::TRACKING) {
+      executeTracking(handle);
+      return;
+    }
+    // look at the target as it is *now*: resolved once, and fixed in base_frame_
+    std::string error;
+    const auto target = resolveGazeTarget(goal->target, 0.5, error);
+    if (!target) {
+      RCLCPP_WARN(get_logger(), "%s", error.c_str());
+      result->result = makeResult(Result::ROS_EBADMSG, error);
+      handle->abort(result);
+      return;
+    }
     if (policy.empty()) {
-      // track until cancelled by a reset (or another target)
+      // keep looking at the target until reset (or another target)
       std::lock_guard<std::mutex> lock(mutex_);
-      gaze_ = Gaze{goal->target, false, {}, std::nullopt};
+      gaze_ = Gaze{GazeTarget{*target, false}, false, {}, std::nullopt};
       result->result = makeResult(Result::ROS_ENOERR);
       handle->succeed(result);
       return;
@@ -801,11 +859,11 @@ void DriverNode::executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<L
     // glance: look at the target for glance_duration, then back to what we were doing
     {
       std::lock_guard<std::mutex> lock(mutex_);
-      std::optional<geometry_msgs::msg::PointStamped> previous;
-      if (gaze_ && !gaze_->glancing) {
-        previous = gaze_->target;
+      std::optional<GazeTarget> previous;
+      if (gaze_) {
+        previous = gaze_->glancing ? gaze_->previous : gaze_->target;
       }
-      gaze_ = Gaze{goal->target, true,
+      gaze_ = Gaze{GazeTarget{*target, false}, true,
         std::chrono::steady_clock::now() +
         std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::duration<double>(glance_duration_)),
@@ -834,7 +892,74 @@ void DriverNode::executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<L
   }
   result->result = makeResult(
     Result::ROS_ENOTSUP, "look_at policy '" + policy + "' is not supported by the driver "
-    "(supported: reset, glance, and target tracking with an empty policy)");
+    "(supported: reset, glance, tracking, and an empty policy to look at the target)");
+  handle->abort(result);
+}
+
+void DriverNode::checkTrackedFrame(const std::string & frame)
+{
+  if (frame == base_frame_ || !robot_frames_.count(frame)) {
+    return;
+  }
+  RCLCPP_WARN(
+    get_logger(),
+    "\n"
+    "################################################################################\n"
+    "  look_at: TRACKING A TARGET IN THE ROBOT FRAME '%s'!\n"
+    "  This frame moves as the robot turns to look at the target (head, or body\n"
+    "  through the automatic body yaw): the robot will chase the target and never\n"
+    "  settle. Use an empty policy instead to look at it once, or express the target\n"
+    "  in a frame that does not move with the robot (e.g. '%s').\n"
+    "################################################################################",
+    frame.c_str(), base_frame_.c_str());
+}
+
+// Follow the target (in its own, possibly moving, frame) until it is lost, the goal is
+// cancelled, or another gaze command (look_at, target_head_pose) replaces it.
+void DriverNode::executeTracking(std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle)
+{
+  auto result = std::make_shared<LookAt::Result>();
+  uint64_t id;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    id = ++gaze_ids_;
+    GazeTarget target{handle->get_goal()->target, true, id, std::chrono::steady_clock::now()};
+    checkTrackedFrame(target.point.header.frame_id);
+    gaze_ = Gaze{target, false, {}, std::nullopt};
+  }
+  while (rclcpp::ok()) {
+    std::this_thread::sleep_for(50ms);
+    std::lock_guard<std::mutex> lock(mutex_);
+    // ours, possibly set aside for the time of a glance
+    const bool current = gaze_ && gaze_->target.id == id;
+    const bool set_aside = gaze_ && gaze_->previous && gaze_->previous->id == id;
+    if (handle->is_canceling()) {
+      if (current) {
+        gaze_.reset();   // the head stays where it is
+      } else if (set_aside) {
+        gaze_->previous.reset();
+      }
+      result->result = makeResult(Result::ROS_ECANCELED);
+      handle->canceled(result);
+      return;
+    }
+    if (!current && !set_aside) {
+      result->result = makeResult(
+        Result::ROS_EINTR, "look_at: tracking replaced by another gaze command");
+      handle->abort(result);
+      return;
+    }
+    if (current && gaze_->target.lost) {
+      const std::string frame = gaze_->target.point.header.frame_id;
+      gaze_.reset();
+      result->result = makeResult(
+        Result::ROS_EOTHER, "look_at: tracking target lost (no transform from '" + frame +
+        "' to '" + base_frame_ + "')");
+      handle->abort(result);
+      return;
+    }
+  }
+  result->result = makeResult(Result::ROS_EINTR, "look_at: driver shutting down");
   handle->abort(result);
 }
 

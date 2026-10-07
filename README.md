@@ -418,6 +418,7 @@ the robot (section 2.1). Each check names what to look at if it fails
 | motion skills | `ros2 service call /skill/list_motions motions_skills/srv/ListMotions` | the names of the emotions library |
 | | `ros2 action send_goal /skill/replay_motion motions_skills/action/ReplayMotion "{name: cheerful1}"` | the robot plays the move; the goal succeeds |
 | | `ros2 action send_goal /skill/look_at interaction_skills/action/LookAt "{policy: glance, target: {header: {frame_id: base_link}, point: {x: 1.0, y: 0.5, z: 0.3}}}"` | the head glances to its left for 2 s and comes back |
+| | `ros2 action send_goal /skill/look_at interaction_skills/action/LookAt "{target: {header: {frame_id: head}, point: {x: 1.0, y: 0.3, z: 0.0}}}"` | the head turns about 17° to its left and stays there (the target is resolved once: no runaway); `{policy: reset}` brings it back. Use `policy: tracking` to follow a moving frame (e.g. a person) instead |
 | camera | `ros2 topic hz /camera/image_raw/ffmpeg` | about 30 Hz (after a second: the camera starts on the first subscriber) |
 | microphones | `ros2 topic hz /audio/head/raw` | about 100 Hz (10 ms chunks) |
 | | `ros2 topic echo /audio/head/voice_detected` | `true` while someone speaks near the robot |

@@ -117,6 +117,53 @@ protected:
     last_message = result_future.get().result->result.error_msg;
     return result_future.get().result->result.error_code;
   }
+  /// Yaw of the head in base_link, from /tf (NaN if not received).
+  double headYaw()
+  {
+    double yaw = std::nan("");
+    auto sub = client_node->create_subscription<tf2_msgs::msg::TFMessage>(
+      "/tf", 10, [&](const tf2_msgs::msg::TFMessage & m) {
+        for (const auto & t : m.transforms) {
+          if (t.child_frame_id == "head") {
+            const auto & q = t.transform.rotation;
+            yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+          }
+        }
+      });
+    const auto deadline = std::chrono::steady_clock::now() + 1s;
+    while (std::chrono::steady_clock::now() < deadline && std::isnan(yaw)) {
+      rclcpp::spin_some(client_node);
+      std::this_thread::sleep_for(10ms);
+    }
+    return yaw;
+  }
+  /// Send a LookAt goal without waiting for its result.
+  rclcpp_action::ClientGoalHandle<LookAt>::SharedPtr sendLookAt(
+    const rclcpp_action::Client<LookAt>::SharedPtr & client, const LookAt::Goal & goal)
+  {
+    auto future = client->async_send_goal(goal);
+    if (rclcpp::spin_until_future_complete(client_node, future, 5s) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      return nullptr;
+    }
+    return future.get();
+  }
+  /// Wait for the result of a LookAt goal; returns its error code (254 on timeout).
+  uint8_t resultOf(
+    const rclcpp_action::Client<LookAt>::SharedPtr & client,
+    const rclcpp_action::ClientGoalHandle<LookAt>::SharedPtr & handle,
+    std::chrono::seconds timeout = 5s)
+  {
+    auto future = client->async_get_result(handle);
+    if (rclcpp::spin_until_future_complete(client_node, future, timeout) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
+      return 254;
+    }
+    last_message = future.get().result->result.error_msg;
+    return future.get().result->result.error_code;
+  }
   /// Wait until the wake-up goto is over.
   void awake() {std::this_thread::sleep_for(2200ms);}
 
@@ -364,6 +411,61 @@ TEST_F(DriverTest, LookAtTracksGlancesAndResets)
   EXPECT_EQ(run<LookAt>("/skill/look_at", social, feedbacks), Result::ROS_ENOTSUP);
   LookAt::Goal empty;
   EXPECT_EQ(run<LookAt>("/skill/look_at", empty, feedbacks), Result::ROS_EBADMSG);
+}
+
+TEST_F(DriverTest, LookAtATargetInTheHeadFrameConverges)
+{
+  awake();
+  // a target expressed in the (moving) head frame: resolved once, the head must settle on it
+  // rather than chase it
+  LookAt::Goal goal;
+  goal.target.header.frame_id = "head";
+  goal.target.point.x = 1.0;
+  goal.target.point.y = 0.3;
+  int feedbacks = 0;
+  EXPECT_EQ(run<LookAt>("/skill/look_at", goal, feedbacks), Result::ROS_ENOERR);
+  std::this_thread::sleep_for(2500ms);
+  const double settled = headYaw();
+  EXPECT_NEAR(settled, std::atan2(0.3, 1.0), 0.05);
+  std::this_thread::sleep_for(1000ms);
+  EXPECT_NEAR(headYaw(), settled, 0.01);   // and stays there
+  // an unknown frame cannot be resolved: bad message
+  goal.target.header.frame_id = "nowhere";
+  EXPECT_EQ(run<LookAt>("/skill/look_at", goal, feedbacks), Result::ROS_EBADMSG);
+}
+
+TEST_F(DriverTest, LookAtTrackingRunsUntilCancelledLostOrReplaced)
+{
+  awake();
+  auto client = rclcpp_action::create_client<LookAt>(client_node, "/skill/look_at");
+  ASSERT_TRUE(client->wait_for_action_server(5s));
+  LookAt::Goal goal;
+  goal.policy = LookAt::Goal::TRACKING;
+  goal.target.header.frame_id = "base_link";
+  goal.target.point.x = 0.5;
+  goal.target.point.y = 0.5;
+  goal.target.point.z = 0.177;
+  // runs, and turns the head, until cancelled
+  auto handle = sendLookAt(client, goal);
+  ASSERT_TRUE(handle);
+  EXPECT_TRUE(waitFor([this] {return headYaw() > 0.3;}, 3000ms));
+  EXPECT_EQ(resultOf(client, handle, 1s), 254);   // still running
+  client->async_cancel_goal(handle);
+  EXPECT_EQ(resultOf(client, handle), Result::ROS_ECANCELED);
+  // replaced by a reset
+  handle = sendLookAt(client, goal);
+  ASSERT_TRUE(handle);
+  std::this_thread::sleep_for(300ms);
+  LookAt::Goal reset;
+  reset.policy = LookAt::Goal::RESET;
+  sendLookAt(client, reset);
+  EXPECT_EQ(resultOf(client, handle), Result::ROS_EINTR);
+  // lost: the frame never shows up (tracking_lost_timeout: 1 s)
+  goal.target.header.frame_id = "nowhere";
+  handle = sendLookAt(client, goal);
+  ASSERT_TRUE(handle);
+  EXPECT_EQ(resultOf(client, handle), Result::ROS_EOTHER);
+  EXPECT_NE(last_message.find("lost"), std::string::npos);
 }
 
 TEST_F(DriverTest, LookAtTurnsTheHeadAtALimitedSpeed)

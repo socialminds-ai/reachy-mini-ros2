@@ -36,6 +36,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -56,6 +57,7 @@
 #include "reachy_mini_msgs/msg/antennas_target.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "std_msgs/msg/string.hpp"
 #include "std_skills/msg/result.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_broadcaster.h"
@@ -115,13 +117,24 @@ private:
     std::atomic<bool> preempted{false};
   };
 
+  /// A look_at target: either a point fixed in base_frame_ (resolved once, at goal reception),
+  /// or, when tracking, a point in its own frame, re-resolved at every tick.
+  struct GazeTarget
+  {
+    geometry_msgs::msg::PointStamped point;
+    bool tracking{false};
+    uint64_t id{0};                                  ///< identifies the tracking goal
+    std::chrono::steady_clock::time_point last_seen;   ///< last successful resolution (tracking)
+    bool lost{false};                                ///< not resolved for tracking_lost_timeout
+  };
+
   /// look_at state: a point to keep the head pointed at, possibly for a limited time (glance).
   struct Gaze
   {
-    geometry_msgs::msg::PointStamped target;
+    GazeTarget target;
     bool glancing{false};
     std::chrono::steady_clock::time_point glance_end;
-    std::optional<geometry_msgs::msg::PointStamped> previous;   // restored after a glance
+    std::optional<GazeTarget> previous;   // restored after a glance
   };
 
   void tick();
@@ -132,6 +145,9 @@ private:
     double duration);
   Command targets() const {return Command{target_pose_, target_antennas_, target_body_yaw_};}
   void applyGaze();
+  /// Express a look_at target in base_frame_ (latest TF); nullopt (and `error`) on failure.
+  std::optional<geometry_msgs::msg::PointStamped> resolveGazeTarget(
+    const geometry_msgs::msg::PointStamped & target, double timeout, std::string & error) const;
   /// Start `motion` in the motion slot (preempting the current one); returns the execution.
   std::shared_ptr<Execution> startMotion(
     std::shared_ptr<const Motion> motion, const std::string & name, uint8_t priority,
@@ -152,6 +168,9 @@ private:
   void executeJointTrajectory(
     std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteJointTrajectory>> handle);
   void executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle);
+  /// Warn loudly if `frame` is a robot frame that moves with the gaze; call under mutex_.
+  void checkTrackedFrame(const std::string & frame);
+  void executeTracking(std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle);
   void listMotions(
     const std::shared_ptr<ListMotions::Request> request,
     std::shared_ptr<ListMotions::Response> response);
@@ -173,6 +192,12 @@ private:
   std::shared_ptr<Execution> current_;
   std::optional<Gaze> gaze_;
   double glance_duration_{2.0};
+  double tracking_lost_timeout_{1.0};
+  uint64_t gaze_ids_{0};
+  /// The robot's frames (URDF links from /robot_description, plus the ones the driver
+  /// publishes): they all move with the gaze (head, or body through the automatic body
+  /// yaw), except base_frame_.
+  std::set<std::string> robot_frames_;
   double motion_initial_goto_{0.5};
   /// The commanded pose follows the targets within `smooth_limits_` (gaze, topics,
   /// gotos are planned within them) or, while a motion plays, `safety_limits_`.
@@ -192,6 +217,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Subscription<reachy_mini_msgs::msg::AntennasTarget>::SharedPtr antennas_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr body_yaw_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr description_sub_;
   rclcpp_action::Server<ReplayMotion>::SharedPtr replay_server_;
   rclcpp_action::Server<ExecuteCartesianTrajectory>::SharedPtr cartesian_server_;
   rclcpp_action::Server<ExecuteJointTrajectory>::SharedPtr joint_server_;

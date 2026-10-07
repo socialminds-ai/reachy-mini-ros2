@@ -310,11 +310,20 @@ snap the head back. The same `Goto` mechanism (`Goto` in `driver_node.py`,
 
 `interaction_skills/action/LookAt` is the other skill the hardware can honour without
 perception: the C++ driver keeps a *gaze* state next to the motion slot. With an empty
-`policy` the goal succeeds at once and the head tracks `target` (a `PointStamped` in any
-TF frame; the loop transforms it into `base_frame` every tick through a `tf2` buffer, so
-a moving frame is followed) until another goal, a motion or a cancel replaces it.
-`GLANCE` does the same for `glance_duration` seconds and then restores whatever target
-was in force before (or the rest pose). `RESET` is a goto to the rest pose. The head
+`policy` the goal succeeds at once and the head looks at `target` (a `PointStamped` in
+any TF frame) until another goal or a reset replaces it. The target is transformed into
+`base_frame` *once*, when the goal is received, and that point stays fixed: a target
+expressed in a frame that moves with the gaze (`head`, `camera`, or the body, which the
+automatic body yaw of the IK turns too) would otherwise run away from the head as it
+turns, and the head would chase it. `GLANCE` does the same for `glance_duration`
+seconds and then restores whatever gaze was in force before (or the rest pose).
+`TRACKING` follows a moving frame (a person, an object): the loop transforms the target
+into `base_frame` every tick through a `tf2` buffer, and the goal runs until it is
+cancelled, replaced by another gaze command (`ROS_EINTR`), or the target is lost (no
+transform for `tracking_lost_timeout` seconds, `ROS_EOTHER`). Tracking a point in one of
+the robot's own frames (the URDF links from `/robot_description`, plus `head` and the
+rods) other than `base_frame` cannot settle, for the reason above, and logs a loud
+warning. `RESET` is a goto to the rest pose. The head
 orientation is yaw = atan2(y, x), pitch = -atan2(z, distance), both clamped to what the
 platform reaches (about 35 degrees), with the head origin kept at rest height; the
 policies that need a perception stack (`RANDOM`, `SOCIAL`, `AUTO`) answer `ROS_ENOTSUP`.
@@ -479,7 +488,8 @@ environment; `colcon test` runs them all in a `ros:lyrical` container.
   names; `list_motions` returning `nod`. The C++ tests add the priority rules (a lower
   priority goal rejected, an equal one preempting with `ROS_EINTR` for the loser), a
   Cartesian and a joint trajectory moving the fake servos (and `safe_mode` refusing the
-  platform joints), and `look_at` tracking, glancing back and resetting. `FakeBus` makes
+  platform joints), and `look_at` looking, glancing back, resetting, settling on a target given in the
+  head frame, and tracking until cancelled, replaced or lost. `FakeBus` makes
   writes observable and instant, so tests assert on `bus.positions`, not on timing.
 * **Moves and kinematics without ROS.** `test_moves.cpp` checks `RecordedMove` loading,
   interpolation and clamping, HuggingFace cache resolution against a fake `$HF_HOME`

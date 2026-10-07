@@ -21,7 +21,7 @@
   <depend>tf2_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>motions_skills</depend>
-  <depend>interaction_skills</depend>
+  <depend version_gte="1.9.1">interaction_skills</depend>
   <depend>std_skills</depend>
   <depend>trajectory_msgs</depend>
   <depend>moveit_msgs</depend>

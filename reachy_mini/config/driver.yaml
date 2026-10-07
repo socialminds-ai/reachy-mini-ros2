@@ -9,6 +9,7 @@ reachy_mini_driver:
     skills_namespace: /skill           # ROS4HRI skills: <ns>/replay_motion, list_motions, look_at, ...
     motion_initial_goto: 0.5           # s, glide to the first sample of a motion before playing it
     glance_duration: 2.0               # s, how long look_at holds a GLANCE (C++ driver)
+    tracking_lost_timeout: 1.0         # s, without TF for the target before look_at TRACKING gives up (C++ driver)
     wake_up_on_start: true             # go to the rest pose when the driver starts
     sleep_on_shutdown: true            # go to the sleep pose and release the motors on exit
     publish_tf: true                   # broadcast base_frame -> head and -> rod_1..6 on /tf
