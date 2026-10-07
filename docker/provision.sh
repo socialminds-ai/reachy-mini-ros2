@@ -14,7 +14,7 @@
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 IMAGE=${IMAGE:-reachy-mini-ros:lyrical}
-REGISTRY_IMAGE=${REGISTRY_IMAGE:-gitlab.iiia.csic.es:5005/socialminds/robots/reachymini/reachy-mini-driver/reachy-mini-ros:lyrical}
+REGISTRY_IMAGE=${REGISTRY_IMAGE:-registry.apps.iiia.csic.es/socialminds/reachy-mini-ros:lyrical}
 # The Debian pool is blocked on some networks (the lab's included)
 NTP_SERVER=${NTP_SERVER:-hora.roa.es}
 
@@ -51,7 +51,7 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     # an image superseded by an earlier pull stays on the card, untagged
     docker image prune -f
   else
-    echo "registry image not available (not logged in?), building locally (about an hour on a Pi)"
+    echo "registry image not available, building locally (about an hour on a Pi)"
     docker build -t "$IMAGE" "$HERE"
   fi
 fi

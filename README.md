@@ -100,13 +100,11 @@ sudo apt install reachy-mini-ros2-bootstrap
 > robot's Debian; install nothing else from that repository on the robot (the
 > ROS packages live in the container).
 
-The image is in the IIIA GitLab registry, currently only open to IIIA staff.
-Log in once, with your GitLab credentials or a deploy token (`read_registry`
-scope); the container then starts by itself within a minute:
+The container then starts by itself. Its first start pulls the image from the
+public registry (a few minutes):
 
 ```sh
-sudo docker login gitlab.iiia.csic.es:5005
-journalctl -u reachy-mini-ros -f          # the first start pulls the image (a few minutes)
+journalctl -u reachy-mini-ros -f
 ```
 
 The end of the installation prints what to do next (and
@@ -132,8 +130,10 @@ always go through `bash`, which sources ROS:
 `docker exec -it reachy-mini-ros bash`.
 
 **The image.** Built from [`docker/Dockerfile`](docker/Dockerfile) by this
-repository's `robot-image` pipeline job, tagged with the release (e.g.
-`reachy-mini-ros:1.2.2`); each release of the bootstrap package pins one. It
+repository's `robot-image` pipeline job, and published as
+`registry.apps.iiia.csic.es/socialminds/reachy-mini-ros:<release>` (e.g.
+`1.2.2`, and `lyrical` for the latest build); each release of the bootstrap
+package pins one. It
 contains ROS 2 Lyrical (Ubuntu 26.04, `ros-core`), `rmw_zenoh_cpp` with a router
 listening on port 7447, the `reachy_mini` packages of this repository and the
 audio nodes from the lab's apt repository: what the robot needs to run, kept
@@ -148,8 +148,8 @@ echo IMAGE_SUFFIX=-full | sudo tee -a /etc/default/reachy-mini-ros
 sudo systemctl restart reachy-mini-ros
 ```
 
-Without access to the registry, build the image on the robot (about an hour,
-needs Internet) and point the unit at it:
+To run an image of your own, build it on the robot (about an hour, needs
+Internet) and point the unit at it:
 
 ```sh
 git clone https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy-mini-driver.git
@@ -460,10 +460,10 @@ zenoh logs "incoming timestamp ... exceeding delta 500ms is rejected"
   `timedatectl | grep synchronized` on both (section 1.2; on the robot, the
   NTP server is set in `/etc/systemd/timesyncd.conf.d/reachy-mini.conf`).
 
-`journalctl -u reachy-mini-ros` says "cannot pull", or `docker pull` "unauthorized"
-: The registry needs a login (`sudo docker login gitlab.iiia.csic.es:5005`), and
-  is currently only open to IIIA staff: build the image on the robot instead
-  (section 1.3).
+`journalctl -u reachy-mini-ros` says "cannot pull"
+: No network, or the registry (`registry.apps.iiia.csic.es`) is unreachable from
+  the robot's network: `docker pull` the image named in the log by hand to see
+  why. Otherwise, build the image on the robot (section 1.3).
 
 "no space left on device", or `df -h /` on the robot shows the card full
 : Old images left behind: `docker system df` shows their size. The bootstrap
