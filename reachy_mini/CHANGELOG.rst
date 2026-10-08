@@ -2,8 +2,8 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.1 (2026-10-08)
+------------------
 * reachy_mini: drop the rviz launch argument
   A driver launch file should not start RViz; run it separately (README
   section 2.3).

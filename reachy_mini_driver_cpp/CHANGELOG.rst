@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.1 (2026-10-08)
+------------------
 * driver: centre the body yaw on wake-up and sleep
   The driver adopted the body yaw measured at startup and the wake-up goto
   kept it, so a body left turned stayed turned. Wake-up and sleep now go to
