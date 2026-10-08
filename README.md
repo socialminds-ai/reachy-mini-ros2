@@ -439,10 +439,10 @@ bus. In a terminal without the zenoh setup of section 2.2 (or with a local
 router: `ros2 run rmw_zenoh_cpp rmw_zenohd &`):
 
 ```sh
-ros2 launch reachy_mini driver.launch.py serial_port:=fake camera:=false audio:=false rviz:=true
+ros2 launch reachy_mini driver.launch.py serial_port:=fake camera:=false audio:=false
 ```
 
-RViz shows the model; the skills above work and move it.
+RViz, started in another terminal as in section 2.3, shows the model; the skills above work and move it.
 
 **Unit tests**, from source (see REFERENCE.md for the build): the drivers'
 tests run on the fake bus.

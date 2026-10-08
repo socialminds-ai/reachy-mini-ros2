@@ -17,7 +17,6 @@ driver, `robot_state_publisher` with the robot model, the camera and the audio.
 | `description` | `true` | `robot_state_publisher` with the `reachy_mini_description` model |
 | `camera` | `true` | `reachy_mini_camera_driver` |
 | `audio` | `true` | `mic_frontend` and `pw_audio_play` |
-| `rviz` | `false` | RViz with `share/reachy_mini_description/rviz/reachy_mini.rviz` |
 
 ## The driver node
 
@@ -101,8 +100,8 @@ measured, so `robot_state_publisher` alone cannot place the head. The split is:
   `base_link -> rod_1..6` from the horn tips and the platform anchors, at the
   loop rate (`publish_tf`, `base_frame` parameters).
 
-`ros2 launch reachy_mini driver.launch.py serial_port:=fake rviz:=true` shows the
-model moving in RViz without a robot.
+`ros2 launch reachy_mini driver.launch.py serial_port:=fake`, with RViz started
+as in README.md section 2.3, shows the model moving without a robot.
 
 ## Camera: `reachy_mini_camera_driver`
 

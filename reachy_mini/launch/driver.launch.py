@@ -20,7 +20,6 @@ the robot model, the camera and the audio (microphones and speaker).
     ros2 launch reachy_mini driver.launch.py serial_port:=fake  # no servos
     ros2 launch reachy_mini driver.launch.py camera:=false      # without the camera
     ros2 launch reachy_mini driver.launch.py audio:=false       # without microphones and speaker
-    ros2 launch reachy_mini driver.launch.py rviz:=true         # + RViz (model, TF, camera)
 
 The camera is reachy_mini_camera_driver (namespace /camera); the audio is
 mic_frontend (/audio/head/raw) and pw_audio_play (plays /audio/out), both
@@ -56,7 +55,6 @@ def generate_launch_description():
                               description='parameter file (see config/driver.yaml)'),
         DeclareLaunchArgument('description', default_value='true',
                               description='publish the robot model (robot_state_publisher)'),
-        DeclareLaunchArgument('rviz', default_value='false', description='open RViz'),
         DeclareLaunchArgument('camera', default_value='true',
                               description='start the camera driver (reachy_mini_camera_driver)'),
         DeclareLaunchArgument('audio', default_value='true',
@@ -65,16 +63,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             os.path.join(get_package_share_directory('reachy_mini_description'),
                          'launch', 'description.launch.py'),
-            launch_arguments={'rviz': 'false'}.items(),
             condition=IfCondition(LaunchConfiguration('description')),
-        ),
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            arguments=['-d', os.path.join(get_package_share_directory('reachy_mini_description'),
-                                          'rviz', 'reachy_mini.rviz')],
-            condition=IfCondition(LaunchConfiguration('rviz')),
         ),
         IncludeLaunchDescription(
             os.path.join(get_package_share_directory('reachy_mini_camera_driver'),
