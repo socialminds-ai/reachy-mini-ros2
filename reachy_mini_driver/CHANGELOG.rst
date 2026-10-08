@@ -2,6 +2,16 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* driver: centre the body yaw on wake-up and sleep
+  The driver adopted the body yaw measured at startup and the wake-up goto
+  kept it, so a body left turned stayed turned. Wake-up and sleep now go to
+  body yaw 0; look_at and reset leave it alone. The Python driver's gotos
+  now interpolate the body yaw too.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.3.0 (2026-10-07)
 ------------------
 

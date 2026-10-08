@@ -2,6 +2,14 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* reachy_mini: drop the rviz launch argument
+  A driver launch file should not start RViz; run it separately (README
+  section 2.3).
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.3.0 (2026-10-07)
 ------------------
 * look_at: resolve the target once, and add the TRACKING policy

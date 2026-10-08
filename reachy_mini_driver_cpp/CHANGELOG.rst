@@ -2,6 +2,28 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* driver: centre the body yaw on wake-up and sleep
+  The driver adopted the body yaw measured at startup and the wake-up goto
+  kept it, so a body left turned stayed turned. Wake-up and sleep now go to
+  body yaw 0; look_at and reset leave it alone. The Python driver's gotos
+  now interpolate the body yaw too.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* driver: no crash on Ctrl+C while a goal runs
+  On Ctrl+C the context is shut down and main() sends the robot to sleep
+  while the goal threads still run: their next publish_feedback, or their
+  final succeed/abort/canceled, threw RCLError in a detached thread, and
+  std::terminate aborted the driver (exit -6).
+  Goal threads are now started through runGoal(), which counts them and
+  catches their exceptions (silently once the context is shut down: no
+  client is left to report to). Feedback is not published after the
+  shutdown, and shutdown() and the destructor wait (bounded) for the goal
+  threads to end, so none fights the sleep goto or outlives the node.
+  A test reproduces the Ctrl+C with a context of its own.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.3.0 (2026-10-07)
 ------------------
 * look_at: resolve the target once, and add the TRACKING policy
