@@ -519,6 +519,56 @@ TEST_F(DriverTest, JointTrajectoryStartsFromTheCurrentPosition)
   EXPECT_TRUE(waitFor([&] {return std::fabs(bus->positions[7] - (before - 2.0)) < 0.05;}, 3000ms));
 }
 
+// Ctrl+C while a move plays: the SIGINT handler shuts the context down, spin() returns and
+// main() calls shutdown() while the goal thread is still running. It used to crash
+// (publish_feedback on an invalid publisher, uncaught in a detached thread).
+TEST(DriverShutdown, CtrlCDuringAMotionDoesNotCrash)
+{
+  auto context = std::make_shared<rclcpp::Context>();   // ours, not the other tests'
+  context->init(0, nullptr);
+  rclcpp::ExecutorOptions executor_options;
+  executor_options.context = context;
+  auto bus = std::make_shared<FakeBus>();
+  rclcpp::NodeOptions options;
+  options.context(context);
+  options.parameter_overrides({rclcpp::Parameter("dataset", std::string(TEST_MOVES_DIR))});
+  auto node = std::make_shared<DriverNode>(bus, options);
+  rclcpp::executors::MultiThreadedExecutor executor(executor_options, 3);
+  executor.add_node(node);
+  std::thread spin([&executor] {executor.spin();});
+  auto client_node = std::make_shared<rclcpp::Node>(
+    "ctrl_c_client", rclcpp::NodeOptions().context(context));
+  rclcpp::executors::SingleThreadedExecutor client_executor(executor_options);
+  client_executor.add_node(client_node);
+  std::this_thread::sleep_for(2200ms);   // wake-up
+
+  auto client = rclcpp_action::create_client<ReplayMotion>(client_node, "/skill/replay_motion");
+  ASSERT_TRUE(client->wait_for_action_server(5s));
+  ReplayMotion::Goal goal;
+  goal.name = "nod";
+  int feedbacks = 0;
+  rclcpp_action::Client<ReplayMotion>::SendGoalOptions send_options;
+  send_options.feedback_callback = [&feedbacks](auto, auto) {++feedbacks;};
+  auto future = client->async_send_goal(goal, send_options);
+  ASSERT_EQ(client_executor.spin_until_future_complete(future, 5s),
+    rclcpp::FutureReturnCode::SUCCESS);
+  ASSERT_TRUE(future.get());
+  // the initial glide (0.5 s), then the move plays and publishes feedback
+  const auto until = std::chrono::steady_clock::now() + 1000ms;
+  while (std::chrono::steady_clock::now() < until) {
+    client_executor.spin_some();
+    std::this_thread::sleep_for(10ms);
+  }
+  EXPECT_GT(feedbacks, 0);
+
+  context->shutdown("ctrl-c");   // what the SIGINT handler does
+  spin.join();
+  node->shutdown();              // as main() does: goes to sleep, with the goal thread around
+  node.reset();
+  std::this_thread::sleep_for(300ms);   // no goal thread may outlive the node
+  EXPECT_FALSE(bus->torque);
+}
+
 int main(int argc, char ** argv)
 {
   ::testing::InitGoogleTest(&argc, argv);

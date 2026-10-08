@@ -33,6 +33,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -167,6 +168,11 @@ private:
     std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteCartesianTrajectory>> handle);
   void executeJointTrajectory(
     std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteJointTrajectory>> handle);
+  /// Run a goal's execution in its own thread, counted in goal_threads_; its exceptions
+  /// are caught (after a Ctrl+C, the goal handle throws when publishing).
+  void runGoal(const std::string & skill, std::function<void()> execute);
+  /// Wait (bounded) for the goal threads to end; call once their motion/gaze is cancelled.
+  void waitForGoalThreads();
   void executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle);
   /// Warn loudly if `frame` is a robot frame that moves with the gaze; call under mutex_.
   void checkTrackedFrame(const std::string & frame);
@@ -194,6 +200,7 @@ private:
   double glance_duration_{2.0};
   double tracking_lost_timeout_{1.0};
   uint64_t gaze_ids_{0};
+  std::atomic<int> goal_threads_{0};
   /// The robot's frames (URDF links from /robot_description, plus the ones the driver
   /// publishes): they all move with the gaze (head, or body through the automatic body
   /// yaw), except base_frame_.

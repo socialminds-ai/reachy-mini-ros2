@@ -245,7 +245,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
       return rclcpp_action::CancelResponse::ACCEPT;
     },
     [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle) {
-      std::thread([this, handle] {executeReplayMotion(handle);}).detach();
+      runGoal("replay_motion", [this, handle] {executeReplayMotion(handle);});
     });
   cartesian_server_ = rclcpp_action::create_server<ExecuteCartesianTrajectory>(
     this, ns + "/execute_cartesian_trajectory",
@@ -257,7 +257,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
       return rclcpp_action::CancelResponse::ACCEPT;
     },
     [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteCartesianTrajectory>> handle) {
-      std::thread([this, handle] {executeCartesianTrajectory(handle);}).detach();
+      runGoal("execute_cartesian_trajectory", [this, handle] {executeCartesianTrajectory(handle);});
     });
   joint_server_ = rclcpp_action::create_server<ExecuteJointTrajectory>(
     this, ns + "/execute_joint_trajectory",
@@ -269,7 +269,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
       return rclcpp_action::CancelResponse::ACCEPT;
     },
     [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<ExecuteJointTrajectory>> handle) {
-      std::thread([this, handle] {executeJointTrajectory(handle);}).detach();
+      runGoal("execute_joint_trajectory", [this, handle] {executeJointTrajectory(handle);});
     });
   look_at_server_ = rclcpp_action::create_server<LookAt>(
     this, ns + "/look_at",
@@ -280,7 +280,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
       return rclcpp_action::CancelResponse::ACCEPT;
     },
     [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle) {
-      std::thread([this, handle] {executeLookAt(handle);}).detach();
+      runGoal("look_at", [this, handle] {executeLookAt(handle);});
     });
   list_service_ = create_service<ListMotions>(
     ns + "/list_motions",
@@ -302,10 +302,45 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
 
 DriverNode::~DriverNode()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  if (current_) {
-    current_->cancelled = true;
-    current_->done = true;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (current_) {
+      current_->cancelled = true;
+      current_->done = true;
+    }
+    gaze_.reset();
+  }
+  waitForGoalThreads();   // they use `this`
+}
+
+void DriverNode::runGoal(const std::string & skill, std::function<void()> execute)
+{
+  ++goal_threads_;
+  std::thread(
+    [this, skill, execute = std::move(execute)] {
+      try {
+        execute();
+      } catch (const std::exception & e) {
+        // Once the context is shut down (Ctrl+C), the goal handle can no longer publish
+        // feedback or its result: nobody is left to tell, the goal just ends.
+        if (rclcpp::ok(get_node_base_interface()->get_context())) {
+          RCLCPP_ERROR(get_logger(), "%s: %s", skill.c_str(), e.what());
+        }
+      }
+      --goal_threads_;
+    }).detach();
+}
+
+void DriverNode::waitForGoalThreads()
+{
+  // the goals end within a few ticks once their motion or gaze is cancelled; the longest
+  // wait is a look_at reset finishing its goto
+  const auto deadline = std::chrono::steady_clock::now() + 3s;
+  while (goal_threads_ > 0 && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(10ms);
+  }
+  if (goal_threads_ > 0) {
+    RCLCPP_WARN(get_logger(), "%d goal(s) still running at shutdown", goal_threads_.load());
   }
 }
 
@@ -619,7 +654,9 @@ uint8_t DriverNode::runMotion(
     feedback->feedback.data_float =
       static_cast<float>(std::min(1.0, elapsed / exec->motion->duration()));
     feedback->feedback.data_str = exec->name;
-    handle->publish_feedback(feedback);
+    if (rclcpp::ok(get_node_base_interface()->get_context())) {   // not after Ctrl+C
+      handle->publish_feedback(feedback);
+    }
   }
   if (exec->preempted) {
     return Result::ROS_EINTR;
@@ -927,7 +964,7 @@ void DriverNode::executeTracking(std::shared_ptr<rclcpp_action::ServerGoalHandle
     checkTrackedFrame(target.point.header.frame_id);
     gaze_ = Gaze{target, false, {}, std::nullopt};
   }
-  while (rclcpp::ok()) {
+  while (rclcpp::ok(get_node_base_interface()->get_context())) {
     std::this_thread::sleep_for(50ms);
     std::lock_guard<std::mutex> lock(mutex_);
     // ours, possibly set aside for the time of a glance
@@ -989,6 +1026,7 @@ void DriverNode::shutdown()
     }
     gaze_.reset();
   }
+  waitForGoalThreads();   // before going to sleep: no goal may fight the sleep goto
   if (get_parameter("sleep_on_shutdown").as_bool()) {
     RCLCPP_INFO(get_logger(), "going to sleep");
     const double duration = gotoPose(kSleepHeadPose, kSleepAntennas, 2.0);
