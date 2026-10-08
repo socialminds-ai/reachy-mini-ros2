@@ -15,24 +15,32 @@ stages:
   - trigger
   - image
 
-# The ROS 2 container that runs on the robot (arm64, built under QEMU: slow,
-# so it is a MANUAL job; run it from the pipeline page after changing docker/).
-# Result: $CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical, and
+# The ROS 2 container that runs on the robot (arm64). It does not build this
+# repo: it installs its arm64 packages from the SocialMinds apt repo, so it
+# waits for release-arm64 (Run pipeline with ARCH=arm64) when that is in the
+# pipeline. Tag pushes do not build arm64: there, the image gets whatever arm64
+# packages the apt repo has already.
+# MANUAL jobs; run them from the pipeline page after a release or a change in
+# docker/, on the release commit, so that the versioned tag matches the release.
+# robot-image: $CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical, and
 # $CI_REGISTRY_IMAGE/reachy-mini-ros:<latest release tag, e.g. 1.2.1>, the tag
-# that reachy-mini-ros2-bootstrap pins (its files/image.env). Run it on the
-# release commit, so that the versioned tag matches the release.
-# Also the same two with -full: build tools and the Python SDK (docker/Dockerfile).
+# that reachy-mini-ros2-bootstrap pins (its files/image.env).
+# robot-image-full: the same two with -full: build tools and the Python SDK
+# (docker/Dockerfile, FULL=1). Not built otherwise.
 # Then bootstrap-pin has reachy-mini-ros2-bootstrap pin the versioned tag.
-robot-image:
+.robot-image:
   stage: image
   image: docker:27
   services: [docker:27-dind]
   tags:
     - arm64
-  needs: []
+  needs:
+    - job: release-arm64
+      optional: true
   variables:
     DOCKER_BUILDKIT: "1"
     GIT_DEPTH: 0   # all the history, so that git describe finds the latest tag
+    FULL: "0"
   before_script:
     - apk add --no-cache git
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
@@ -41,15 +49,11 @@ robot-image:
     - docker buildx create tls-ctx --use --name multiarch --driver docker-container || docker buildx use multiarch
   script:
     - VERSION=${CI_COMMIT_TAG:-$(git describe --tags --abbrev=0)}
-    - echo "image version $VERSION"
-    - docker buildx build --platform linux/arm64
-        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical"
-        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION"
-        --push docker/
-    # same layers + build tools and the Python SDK (Dockerfile, FULL)
-    - docker buildx build --platform linux/arm64 --build-arg FULL=1
-        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical-full"
-        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION-full"
+    - SUFFIX=$([ "$FULL" = 1 ] && echo -full || true)
+    - echo "image version $VERSION$SUFFIX"
+    - docker buildx build --platform linux/arm64 --build-arg FULL=$FULL
+        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical$SUFFIX"
+        -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION$SUFFIX"
         --push docker/
     - echo "ROBOT_IMAGE_VERSION=$VERSION" > robot-image.env
   artifacts:
@@ -65,6 +69,14 @@ robot-image:
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
       allow_failure: true
+
+robot-image:
+  extends: .robot-image
+
+robot-image-full:
+  extends: .robot-image
+  variables:
+    FULL: "1"
 
 # Once the images are pushed: a pipeline of reachy-mini-ros2-bootstrap that, if
 # the tag is not the one it pins already (files/image.env), pins it, adds a

@@ -141,7 +141,9 @@ small since the SD card only has room for one image.
 
 The `-full` variant adds the build tools, to build packages in the container
 (section 2.4), and Pollen's Python SDK, for the Python driver (`lang:=python`).
-It is about 0.6 GB bigger. To switch to it (and back, by removing the line):
+It is about 0.6 GB bigger, and built by its own manual job, `robot-image-full`:
+check that the registry has it for the pinned release before switching. To
+switch to it (and back, by removing the line):
 
 ```sh
 echo IMAGE_SUFFIX=-full | sudo tee -a /etc/default/reachy-mini-ros
