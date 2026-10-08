@@ -46,6 +46,7 @@ apply, high enough for the emotions library (whose fastest moves, `dying1` for
 instance, reach 7 to 10 rad/s) but not for the jumps of a few milliseconds some
 recordings contain. Gotos (wake-up, sleep, `reset`, the glide to a motion's first
 sample) last as long as the smooth limits require, and start and stop at rest.
+Wake-up and sleep also bring the body yaw back to 0, whatever it was at startup.
 
 | part | `max_speed.` | `max_acceleration.` | `safety_max_speed.` |
 |---|---|---|---|

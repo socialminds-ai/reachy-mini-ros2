@@ -102,21 +102,24 @@ def msg_to_pose(msg: PoseStamped) -> np.ndarray:
 
 
 class Goto:
-    """A timed, linear transition of head pose and antennas."""
+    """A timed, linear transition of head pose, antennas and body yaw."""
 
-    def __init__(self, start_pose, end_pose, start_ant, end_ant, duration: float) -> None:
+    def __init__(self, start_pose, end_pose, start_ant, end_ant, start_yaw: float,
+                 end_yaw: float, duration: float) -> None:
         """Interpolate from start to end over `duration` seconds."""
         self.start_pose, self.end_pose = start_pose, end_pose
         self.start_ant, self.end_ant = list(start_ant), list(end_ant)
+        self.start_yaw, self.end_yaw = start_yaw, end_yaw
         self.duration = max(duration, 1e-3)
         self.t0 = time.monotonic()
 
-    def evaluate(self) -> Tuple[np.ndarray, List[float], bool]:
-        """Return (head pose, antennas, done)."""
+    def evaluate(self) -> Tuple[np.ndarray, List[float], float, bool]:
+        """Return (head pose, antennas, body yaw, done)."""
         a = min(1.0, (time.monotonic() - self.t0) / self.duration)
         pose = linear_pose_interpolation(self.start_pose, self.end_pose, a)
         ant = [s + (e - s) * a for s, e in zip(self.start_ant, self.end_ant)]
-        return pose, ant, a >= 1.0
+        yaw = self.start_yaw + (self.end_yaw - self.start_yaw) * a
+        return pose, ant, yaw, a >= 1.0
 
 
 class DriverNode(Node):
@@ -223,18 +226,21 @@ class DriverNode(Node):
 
         self.bus.set_torque(True)
         if self.get_parameter('wake_up_on_start').value:
-            self.goto(INIT_HEAD_POSE, INIT_ANTENNAS, duration=2.0)
+            self.goto(INIT_HEAD_POSE, INIT_ANTENNAS, duration=2.0, body_yaw=0.0)
 
         period = 1.0 / self.get_parameter('rate').value
         self._timer = self.create_timer(period, self._tick)
         self.get_logger().info(f'driver ready on {port} at {1 / period:.0f} Hz')
 
     # ------------------------------------------------------------------ targets
-    def goto(self, head_pose, antennas, duration: float) -> None:
-        """Smoothly move to a head pose and antenna positions."""
+    def goto(self, head_pose, antennas, duration: float,
+             body_yaw: Optional[float] = None) -> None:
+        """Smoothly move to a head pose, antenna positions and (if given) body yaw."""
         with self._lock:
+            end_yaw = self._target_body_yaw if body_yaw is None else body_yaw
             self._goto = Goto(self._target_pose, np.array(head_pose),
-                              self._target_antennas, antennas, duration)
+                              self._target_antennas, antennas,
+                              self._target_body_yaw, end_yaw, duration)
 
     def _on_target_pose(self, msg: PoseStamped) -> None:
         with self._lock:
@@ -277,8 +283,8 @@ class DriverNode(Node):
                     if body_yaw is not None:
                         self._target_body_yaw = float(body_yaw)
             elif self._goto is not None:
-                pose, ant, done = self._goto.evaluate()
-                self._target_pose, self._target_antennas = pose, ant
+                pose, ant, yaw, done = self._goto.evaluate()
+                self._target_pose, self._target_antennas, self._target_body_yaw = pose, ant, yaw
                 if done:
                     self._goto = None
 
@@ -378,10 +384,10 @@ class DriverNode(Node):
         if preempted:
             self._move_done.wait(timeout=1.0)
         # 1. reach the first pose of the move (so the move does not start with a jump)
-        head0, ant0, _ = move.evaluate(0.0)
+        head0, ant0, yaw0 = move.evaluate(0.0)
         initial_goto = self.get_parameter('motion_initial_goto').value
         if initial_goto > 0:
-            self.goto(head0, list(ant0), initial_goto)
+            self.goto(head0, list(ant0), initial_goto, yaw0)
             time.sleep(initial_goto)
         # 2. play, ticking feedback until the loop says it is over
         with self._lock:
@@ -427,7 +433,7 @@ class DriverNode(Node):
         self._timer.cancel()          # the executor may already be gone: tick by hand
         if self.get_parameter('sleep_on_shutdown').value:
             self.get_logger().info('going to sleep')
-            self.goto(SLEEP_HEAD_POSE, SLEEP_ANTENNAS, duration=2.0)
+            self.goto(SLEEP_HEAD_POSE, SLEEP_ANTENNAS, duration=2.0, body_yaw=0.0)
             deadline = time.monotonic() + 2.5
             while self._goto is not None and time.monotonic() < deadline:
                 self._tick()

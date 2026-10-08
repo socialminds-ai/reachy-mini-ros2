@@ -289,7 +289,7 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
 
   bus_->setTorque(true);
   if (get_parameter("wake_up_on_start").as_bool()) {
-    gotoPose(kInitHeadPose, kInitAntennas, 2.0);
+    gotoPose(kInitHeadPose, kInitAntennas, 2.0, 0.0);   // body centred, whatever it was
   }
 
   const double rate = get_parameter("rate").as_double();
@@ -1029,7 +1029,7 @@ void DriverNode::shutdown()
   waitForGoalThreads();   // before going to sleep: no goal may fight the sleep goto
   if (get_parameter("sleep_on_shutdown").as_bool()) {
     RCLCPP_INFO(get_logger(), "going to sleep");
-    const double duration = gotoPose(kSleepHeadPose, kSleepAntennas, 2.0);
+    const double duration = gotoPose(kSleepHeadPose, kSleepAntennas, 2.0, 0.0);
     const auto deadline = std::chrono::steady_clock::now() +
       std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::duration<double>(duration + 0.5));

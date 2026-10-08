@@ -69,6 +69,7 @@ protected:
   void SetUp() override
   {
     bus = std::make_shared<FakeBus>();
+    bus->positions[0] = initial_body_yaw;
     rclcpp::NodeOptions options;
     options.parameter_overrides({rclcpp::Parameter("dataset", std::string(TEST_MOVES_DIR)),
         rclcpp::Parameter("glance_duration", 0.5)});
@@ -167,6 +168,7 @@ protected:
   /// Wait until the wake-up goto is over.
   void awake() {std::this_thread::sleep_for(2200ms);}
 
+  double initial_body_yaw{0.0};   ///< where the body is when the driver starts
   std::shared_ptr<FakeBus> bus;
   std::shared_ptr<DriverNode> node;
   std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor;
@@ -191,6 +193,19 @@ TEST_F(DriverTest, WakeUpReachesInitPose)
                std::fabs(bus->positions[8] - reachy_mini_driver::kInitAntennas[1]) < 1e-3;
       }, 4000ms));
   EXPECT_NEAR(bus->positions[0], 0.0, 1e-6);
+}
+
+// the body was left turned (by hand, or by a motion before a restart)
+class TurnedBodyDriverTest : public DriverTest
+{
+protected:
+  TurnedBodyDriverTest() {initial_body_yaw = 0.5;}
+};
+
+TEST_F(TurnedBodyDriverTest, WakeUpCentresTheBody)
+{
+  EXPECT_TRUE(waitFor([this] {return std::fabs(bus->positions[0]) < 1e-3;}, 4000ms));
+  EXPECT_NEAR(headYaw(), 0.0, 0.02);
 }
 
 TEST_F(DriverTest, JointStatesArePublished)
