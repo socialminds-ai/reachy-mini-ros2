@@ -51,10 +51,10 @@ robot-image:
         -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:lyrical-full"
         -t "$CI_REGISTRY_IMAGE/reachy-mini-ros:$VERSION-full"
         --push docker/
-    - echo "REACHY_MINI_ROS_TAG=$VERSION" > robot-image.env
+    - echo "ROBOT_IMAGE_VERSION=$VERSION" > robot-image.env
   artifacts:
     reports:
-      dotenv: robot-image.env   # REACHY_MINI_ROS_TAG, for bootstrap-pin
+      dotenv: robot-image.env   # ROBOT_IMAGE_VERSION, for bootstrap-pin
   rules:
     - if: $CI_COMMIT_TAG
       when: manual
@@ -75,7 +75,9 @@ bootstrap-pin:
   stage: image
   needs: [robot-image]
   variables:
-    REACHY_MINI_ROS_TAG: $REACHY_MINI_ROS_TAG   # from robot-image's dotenv
+    # from robot-image's dotenv, under another name: a variable that refers
+    # to its own name is not expanded, and goes downstream as a literal
+    REACHY_MINI_ROS_TAG: $ROBOT_IMAGE_VERSION
   trigger:
     project: socialminds/robots/reachymini/reachy_mini_ros2_bootstrap
     branch: main
