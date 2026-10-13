@@ -101,7 +101,7 @@ sudo apt install reachy-mini-ros2-bootstrap
 > ROS packages live in the container).
 
 The container then starts by itself. Its first start pulls the image from the
-public registry (a few minutes):
+lab's public Harbor registry, which needs no login (a few minutes):
 
 ```sh
 journalctl -u reachy-mini-ros -f
@@ -130,7 +130,8 @@ always go through `bash`, which sources ROS:
 `docker exec -it reachy-mini-ros bash`.
 
 **The image.** Built from [`docker/Dockerfile`](docker/Dockerfile) by this
-repository's `robot-image` pipeline job, and published as
+repository's `robot-image` pipeline job, and pushed to the lab's Harbor
+registry as
 `registry.apps.iiia.csic.es/socialminds/reachy-mini-ros:<release>` (e.g.
 `1.2.2`, and `lyrical` for the latest build); each release of the bootstrap
 package pins one. It
@@ -142,7 +143,7 @@ small since the SD card only has room for one image.
 The `-full` variant adds the build tools, to build packages in the container
 (section 2.4), and Pollen's Python SDK, for the Python driver (`lang:=python`).
 It is about 0.6 GB bigger, and built by its own manual job, `robot-image-full`:
-check that the registry has it for the pinned release before switching. To
+check that Harbor has it for the pinned release before switching. To
 switch to it (and back, by removing the line):
 
 ```sh
@@ -464,7 +465,7 @@ zenoh logs "incoming timestamp ... exceeding delta 500ms is rejected"
   NTP server is set in `/etc/systemd/timesyncd.conf.d/reachy-mini.conf`).
 
 `journalctl -u reachy-mini-ros` says "cannot pull"
-: No network, or the registry (`registry.apps.iiia.csic.es`) is unreachable from
+: No network, or the Harbor registry (`registry.apps.iiia.csic.es`) is unreachable from
   the robot's network: `docker pull` the image named in the log by hand to see
   why. Otherwise, build the image on the robot (section 1.3).
 
