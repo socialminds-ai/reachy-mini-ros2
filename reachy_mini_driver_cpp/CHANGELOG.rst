@@ -2,8 +2,8 @@
 Changelog for package reachy_mini_driver_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.4.0 (2026-10-13)
+------------------
 * driver: wake_up and go_to_sleep skills
   Wake-up and sleep only happened at startup and exit. They are now also
   actions, with standard interfaces:
