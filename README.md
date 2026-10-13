@@ -420,6 +420,7 @@ the robot (section 2.1). Each check names what to look at if it fails
 | kinematics and TF | `ros2 run tf2_ros tf2_echo base_link head` | the head about 0.18 m above `base_link` |
 | motion skills | `ros2 service call /skill/list_motions motions_skills/srv/ListMotions` | the names of the emotions library |
 | | `ros2 action send_goal /skill/replay_motion motions_skills/action/ReplayMotion "{name: cheerful1}"` | the robot plays the move; the goal succeeds |
+| | `ros2 action send_goal /skill/go_to_sleep std_skills/action/Empty "{}"`, then `ros2 action send_goal /skill/wake_up motions_skills/action/ReplayMotion "{name: wake-mini-up}"` | the head goes down to its sleep pose, then wakes up with Pollen's animation and ends in the rest pose (an empty `name` wakes up with a plain 2 s goto) |
 | | `ros2 action send_goal /skill/look_at interaction_skills/action/LookAt "{policy: glance, target: {header: {frame_id: base_link}, point: {x: 1.0, y: 0.5, z: 0.3}}}"` | the head glances to its left for 2 s and comes back |
 | | `ros2 action send_goal /skill/look_at interaction_skills/action/LookAt "{target: {header: {frame_id: head}, point: {x: 1.0, y: 0.3, z: 0.0}}}"` | the head turns about 17° to its left and stays there (the target is resolved once: no runaway); `{policy: reset}` brings it back. Use `policy: tracking` to follow a moving frame (e.g. a person) instead |
 | camera | `ros2 topic hz /camera/image_raw/ffmpeg` | about 30 Hz (after a second: the camera starts on the first subscriber) |
@@ -534,7 +535,7 @@ The speaker is barely audible
 |---|---|
 | `reachy_mini` | Metapackage: depends on all of the below and on the audio nodes (`mic_frontend`, `pw_audio_play`); ships `driver.launch.py`, the parameter files and a systemd unit for native installations. Install this one. |
 | `reachy_mini_driver_cpp` | The servo driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json): the one `driver.launch.py` starts by default. |
-| `reachy_mini_driver` | The same driver in Python (uses Pollen's Python wheels), a reference implementation limited to `replay_motion` and `list_motions`. |
+| `reachy_mini_driver` | The same driver in Python (uses Pollen's Python wheels), a reference implementation limited to `replay_motion`, `list_motions`, `wake_up` and `go_to_sleep`. |
 | `reachy_mini_c` | C library (Rust inside, built by cargo) over Pollen's motor-controller and kinematics crates. See its `VENDORING.md`. |
 | `reachy_mini_msgs` | Interfaces: `msg/AntennasTarget`. |
 | `reachy_mini_camera_driver` | The camera (IMX708 wide, CSI) through libcamera, H.264 from the Pi's hardware encoder. |

@@ -36,7 +36,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_limits test/test_limits.cpp)
   target_link_libraries(test_limits ${PROJECT_NAME}_lib)
 
-  ament_add_gtest(test_driver test/test_driver.cpp)
+  ament_add_gtest(test_driver test/test_driver.cpp TIMEOUT 180)   # ~20 tests of a few seconds
   target_link_libraries(test_driver ${PROJECT_NAME}_node)
   target_compile_definitions(test_driver PRIVATE TEST_MOVES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test/moves")
 endif()

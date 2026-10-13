@@ -48,6 +48,7 @@ from reachy_mini_msgs.msg import AntennasTarget
 from scipy.spatial.transform import Rotation as R
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
+from std_skills.action import Empty as EmptySkill
 from std_skills.msg import Result
 from tf2_ros import TransformBroadcaster
 
@@ -122,6 +123,25 @@ class Goto:
         return pose, ant, yaw, a >= 1.0
 
 
+class GotoMove:
+    """A Goto as a move (same interface as RecordedMove), to run it in the motion slot."""
+
+    def __init__(self, start_pose, end_pose, start_ant, end_ant, start_yaw: float,
+                 end_yaw: float, duration: float) -> None:
+        """Interpolate from start to end over `duration` seconds."""
+        self.goto = Goto(start_pose, end_pose, start_ant, end_ant, start_yaw, end_yaw, duration)
+        # held at the end for a few ticks: the loop stops evaluating a move just before its end
+        self.duration = self.goto.duration + 0.1
+
+    def evaluate(self, t: float):
+        """Return (head pose, antennas, body yaw) at time t."""
+        a = min(1.0, max(0.0, t / self.goto.duration))
+        g = self.goto
+        pose = linear_pose_interpolation(g.start_pose, g.end_pose, a)
+        ant = [s + (e - s) * a for s, e in zip(g.start_ant, g.end_ant)]
+        return pose, ant, g.start_yaw + (g.end_yaw - g.start_yaw) * a
+
+
 class DriverNode(Node):
     """
     Reachy Mini hardware driver.
@@ -151,9 +171,12 @@ class DriverNode(Node):
     -----------------------------------------------------------------------
     replay_motion (motions_skills/action/ReplayMotion): play a recorded move by name.
     list_motions (motions_skills/srv/ListMotions): the names that replay_motion accepts.
+    wake_up (motions_skills/action/ReplayMotion): torque on, the move `name` if not
+    empty, then the rest pose.
+    go_to_sleep (std_skills/action/Empty): the sleep pose (motors stay on).
 
     The C++ driver implements the full skill set (trajectories, look_at); this
-    Python driver is a reference implementation limited to the two motion skills.
+    Python driver is a reference implementation limited to the motion skills above.
 
     """
 
@@ -218,6 +241,18 @@ class DriverNode(Node):
         self._action = ActionServer(
             self, ReplayMotion, ns + '/replay_motion',
             execute_callback=self._execute_replay_motion,
+            goal_callback=self._accept_motion_goal,
+            cancel_callback=lambda _: CancelResponse.ACCEPT,
+            callback_group=self._cb_group)
+        self._wake_up_action = ActionServer(
+            self, ReplayMotion, ns + '/wake_up',
+            execute_callback=self._execute_wake_up,
+            goal_callback=self._accept_motion_goal,
+            cancel_callback=lambda _: CancelResponse.ACCEPT,
+            callback_group=self._cb_group)
+        self._sleep_action = ActionServer(
+            self, EmptySkill, ns + '/go_to_sleep',
+            execute_callback=self._execute_go_to_sleep,
             goal_callback=self._accept_motion_goal,
             cancel_callback=lambda _: CancelResponse.ACCEPT,
             callback_group=self._cb_group)
@@ -349,26 +384,84 @@ class DriverNode(Node):
             return GoalResponse.REJECT
         return GoalResponse.ACCEPT
 
+    def _find_move(self, name: str):
+        """Return the move `name`, from the default library or the extra datasets."""
+        if not name:
+            raise KeyError('empty motion name')
+        try:
+            return self.library.get(name)
+        except KeyError:
+            for dataset in self.extra_datasets:
+                try:
+                    return self.library.get(name, dataset)
+                except KeyError:
+                    pass
+        raise KeyError(f"unknown motion '{name}'")
+
+    def _goto_move(self, head_pose, antennas, body_yaw: float, duration: float) -> GotoMove:
+        """Return a goto from the current targets, as a move."""
+        with self._lock:
+            return GotoMove(self._target_pose, np.array(head_pose), self._target_antennas,
+                            antennas, self._target_body_yaw, body_yaw, duration)
+
+    def _play(self, goal_handle, move, name: str, priority: int, feedback,
+              initial_goto: float) -> int:
+        """Play `move` in the motion slot until it ends; return the std_skills error code."""
+        # preempt whatever is playing (the goal callback already filtered lower priorities)
+        with self._lock:
+            preempted = self._move is not None
+            self._move_cancelled = True
+            self._move_priority = priority
+        if preempted:
+            self._move_done.wait(timeout=1.0)
+        # 1. reach the first pose of the move (so the move does not start with a jump)
+        if initial_goto > 0:
+            head0, ant0, yaw0 = move.evaluate(0.0)
+            self.goto(head0, list(ant0), initial_goto, yaw0)
+            time.sleep(initial_goto)
+        # 2. play, ticking feedback until the loop says it is over
+        with self._lock:
+            self._goto = None
+            self._move_cancelled = False
+            self._move_done.clear()
+            self._move = (move, time.monotonic())
+            this_move = self._move
+        while not self._move_done.wait(timeout=0.1):
+            if goal_handle.is_cancel_requested:
+                with self._lock:
+                    self._move_cancelled = True
+                self._move_done.wait(timeout=1.0)
+                return Result.ROS_ECANCELED
+            with self._lock:
+                if self._move is not this_move:      # replaced by a newer goal
+                    break
+                elapsed = time.monotonic() - self._move[1] if self._move else move.duration
+            feedback.feedback.data_float = float(min(1.0, elapsed / move.duration))
+            feedback.feedback.data_str = name
+            goal_handle.publish_feedback(feedback)
+        with self._lock:
+            if self._move is not None and self._move is not this_move:
+                return Result.ROS_EINTR
+        return Result.ROS_ENOERR
+
+    @staticmethod
+    def _finish(goal_handle, result, code: int):
+        result.result.error_code = code
+        if code == Result.ROS_ENOERR:
+            goal_handle.succeed()
+        elif code == Result.ROS_ECANCELED:
+            goal_handle.canceled()
+        else:
+            goal_handle.abort()
+        return result
+
     def _execute_replay_motion(self, goal_handle):
         """ROS4HRI replay_motion: play a recorded move by name."""
         goal = goal_handle.request
         result = ReplayMotion.Result()
-        move = None
         try:
-            if not goal.name:
-                raise KeyError('empty motion name')
-            try:
-                move = self.library.get(goal.name)
-            except KeyError:
-                for dataset in self.extra_datasets:
-                    try:
-                        move = self.library.get(goal.name, dataset)
-                        break
-                    except KeyError:
-                        pass
-            if move is None:
-                raise KeyError(f"unknown motion '{goal.name}'")
-        except Exception as e:  # noqa: BLE001 - the spec wants the list of motions back
+            move = self._find_move(goal.name)
+        except KeyError as e:   # the spec wants the list of motions back
             result.result.error_code = Result.ROS_EBADMSG
             result.result.error_msg = f'{e}; available: {", ".join(self._all_motion_names())}'
             goal_handle.abort()
@@ -376,50 +469,46 @@ class DriverNode(Node):
 
         self.get_logger().info(
             f"playing '{goal.name}' ({move.duration:.1f} s) for {goal.meta.caller or 'unknown'}")
-        # preempt whatever is playing (the goal callback already filtered lower priorities)
-        with self._lock:
-            preempted = self._move is not None
-            self._move_cancelled = True
-            self._move_priority = goal.meta.priority
-        if preempted:
-            self._move_done.wait(timeout=1.0)
-        # 1. reach the first pose of the move (so the move does not start with a jump)
-        head0, ant0, yaw0 = move.evaluate(0.0)
-        initial_goto = self.get_parameter('motion_initial_goto').value
-        if initial_goto > 0:
-            self.goto(head0, list(ant0), initial_goto, yaw0)
-            time.sleep(initial_goto)
-        # 2. play, ticking feedback until the loop says it is over
-        with self._lock:
-            self._move_cancelled = False
-            self._move_done.clear()
-            self._move = (move, time.monotonic())
-        feedback = ReplayMotion.Feedback()
-        this_move = self._move
-        while not self._move_done.wait(timeout=0.1):
-            if goal_handle.is_cancel_requested:
-                with self._lock:
-                    self._move_cancelled = True
-                self._move_done.wait(timeout=1.0)
-                goal_handle.canceled()
-                result.result.error_code = Result.ROS_ECANCELED
+        code = self._play(goal_handle, move, goal.name, goal.meta.priority,
+                          ReplayMotion.Feedback(),
+                          self.get_parameter('motion_initial_goto').value)
+        return self._finish(goal_handle, result, code)
+
+    def _execute_wake_up(self, goal_handle):
+        """wake_up: torque on, the animation `name` if any, then the rest pose."""
+        goal = goal_handle.request
+        result = ReplayMotion.Result()
+        animation = None
+        if goal.name:
+            try:
+                animation = self._find_move(goal.name)
+            except KeyError as e:
+                result.result.error_code = Result.ROS_EBADMSG
+                result.result.error_msg = f'{e}; available: {", ".join(self._all_motion_names())}'
+                goal_handle.abort()
                 return result
-            with self._lock:
-                if self._move is not this_move:      # replaced by a newer goal
-                    break
-                elapsed = time.monotonic() - self._move[1] if self._move else move.duration
-            feedback.feedback.data_float = float(min(1.0, elapsed / move.duration))
-            feedback.feedback.data_str = goal.name
-            goal_handle.publish_feedback(feedback)
-        with self._lock:
-            preempted_by_newer = self._move is not None and self._move is not this_move
-        if preempted_by_newer:
-            result.result.error_code = Result.ROS_EINTR
-            goal_handle.abort()
-            return result
-        goal_handle.succeed()
-        result.result.error_code = Result.ROS_ENOERR
-        return result
+        self.get_logger().info(
+            'waking up' + (f" with '{goal.name}'" if goal.name else '') +
+            f" for {goal.meta.caller or 'unknown'}")
+        self.bus.set_torque(True)
+        feedback = ReplayMotion.Feedback()
+        code = Result.ROS_ENOERR
+        if animation is not None:
+            code = self._play(goal_handle, animation, goal.name, goal.meta.priority, feedback,
+                              self.get_parameter('motion_initial_goto').value)
+        if code == Result.ROS_ENOERR:
+            rest = self._goto_move(INIT_HEAD_POSE, INIT_ANTENNAS, 0.0, 2.0)
+            code = self._play(goal_handle, rest, 'wake_up', goal.meta.priority, feedback, 0.0)
+        return self._finish(goal_handle, result, code)
+
+    def _execute_go_to_sleep(self, goal_handle):
+        """go_to_sleep: the sleep pose, body centred (the motors stay on)."""
+        goal = goal_handle.request
+        self.get_logger().info(f"going to sleep for {goal.meta.caller or 'unknown'}")
+        sleep = self._goto_move(SLEEP_HEAD_POSE, SLEEP_ANTENNAS, 0.0, 2.0)
+        code = self._play(goal_handle, sleep, 'go_to_sleep', goal.meta.priority,
+                          EmptySkill.Feedback(), 0.0)
+        return self._finish(goal_handle, EmptySkill.Result(), code)
 
     def stop_move(self) -> None:
         """Interrupt the move being played (used at shutdown)."""

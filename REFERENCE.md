@@ -44,8 +44,8 @@ apply, with an acceleration ramp, so a new target is reached in a smooth movemen
 rather than at the servos' top speed. While a motion plays, only the safety caps
 apply, high enough for the emotions library (whose fastest moves, `dying1` for
 instance, reach 7 to 10 rad/s) but not for the jumps of a few milliseconds some
-recordings contain. Gotos (wake-up, sleep, `reset`, the glide to a motion's first
-sample) last as long as the smooth limits require, and start and stop at rest.
+recordings contain. Gotos (wake-up, sleep, `wake_up`, `go_to_sleep`, `reset`, the
+glide to a motion's first sample) last as long as the smooth limits require, and start and stop at rest.
 Wake-up and sleep also bring the body yaw back to 0, whatever it was at startup.
 
 | part | `max_speed.` | `max_acceleration.` | `safety_max_speed.` |
@@ -70,12 +70,16 @@ behaviour node can use it without knowing anything Reachy-specific: the goals ca
 |---|---|---|---|---|
 | `/skill/replay_motion` | action `motions_skills/ReplayMotion` | yes | yes | plays a recorded move by `name`, from `dataset` (by default `package://reachy_mini_expressions_data/emotions`, Pollen's emotions library as installed by `reachy_mini_expressions_data`; also a local directory of move JSON files, or a HuggingFace dataset such as `pollen-robotics/reachy-mini-emotions-library`) or one of `extra_datasets` (by default the packaged dances); unknown name -> `ROS_EBADMSG` with the available names in `error_msg` |
 | `/skill/list_motions` | service `motions_skills/ListMotions` | yes | yes | the names `replay_motion` accepts |
+| `/skill/wake_up` | action `motions_skills/ReplayMotion` | yes | yes | turns the motors on (if they were off), then goes to the rest pose (head upright, antennas slightly outwards, body yaw 0) in a goto of 2 s (longer if the speed limits need it). With a `name` (any motion `replay_motion` accepts, e.g. `wake-mini-up`, Pollen's wake-up animation), plays that motion first, then the goto to the rest pose, so the robot always ends up in the same pose. Unknown name -> `ROS_EBADMSG` with the available names. `unsafe` is ignored |
+| `/skill/go_to_sleep` | action `std_skills/Empty` | yes | yes | goes to the sleep pose (head tilted forward and down onto its stop, antennas folded back, body yaw 0) in a goto of 2 s (longer if the speed limits need it). The motors stay on: they are released only when the driver exits (`sleep_on_shutdown`) |
 | `/skill/execute_cartesian_trajectory` | action `motions_skills/ExecuteCartesianTrajectory` | yes | no | `moveit_msgs/CartesianTrajectory` for `tracked_frame` `head`, poses in `base_frame` (the head frame sits about 0.177 m above `base_link` at rest, see `/tf`): head poses over time, linearly interpolated, IK by the driver |
 | `/skill/execute_joint_trajectory` | action `motions_skills/ExecuteJointTrajectory` | yes | no | `trajectory_msgs/JointTrajectory` on any of the 9 joints, bypassing the kinematics; `safe_mode` (default true) refuses the `stewart_*` joints, since driving them one by one can strain the platform |
 | `/skill/look_at` | action `interaction_skills/LookAt` | yes | no | `policy` empty: keep the head pointed at `target` (any TF frame, resolved once when the goal arrives, so a frame moving with the robot is fine) until a new goal or a reset; `tracking` (the `TRACKING` constant): follow `target`, re-evaluated every tick, until cancelled, replaced (`ROS_EINTR`) or lost for `tracking_lost_timeout` (`ROS_EOTHER`); tracking a robot frame other than `base_link` logs a warning, as it cannot settle; `glance` (the `GLANCE` constant): look for `glance_duration` then come back; `reset`: back to the rest pose. `random`, `social` and `auto` (which need perception) return `ROS_ENOTSUP` |
 
 One motion at a time: a new motion goal preempts the running one (which ends with
-`ROS_EINTR`) unless its `meta.priority` is lower, in which case it is rejected. A cancel
+`ROS_EINTR`) unless its `meta.priority` is lower, in which case it is rejected.
+`wake_up` and `go_to_sleep` count as motions: they preempt a running motion (and stop
+any `look_at` gaze), and a lower-priority motion cannot interrupt them. A cancel
 returns `ROS_ECANCELED` and leaves the head where it is. Cartesian motions start with a
 glide to their first sample (head, antennas and body yaw), of `motion_initial_goto`
 seconds or longer if the distance requires it under the speed limits, so the head never
@@ -84,6 +88,9 @@ jumps.
 ```sh
 ros2 service call /skill/list_motions motions_skills/srv/ListMotions
 ros2 action send_goal /skill/replay_motion motions_skills/action/ReplayMotion "{name: cheerful1}"
+ros2 action send_goal /skill/go_to_sleep std_skills/action/Empty "{}"
+ros2 action send_goal /skill/wake_up motions_skills/action/ReplayMotion "{}"                  # goto
+ros2 action send_goal /skill/wake_up motions_skills/action/ReplayMotion "{name: wake-mini-up}" # animation
 ros2 action send_goal /skill/look_at interaction_skills/action/LookAt \
     "{policy: glance, target: {header: {frame_id: base_link}, point: {x: 1.0, y: 0.5, z: 0.3}}}"
 ```
@@ -246,7 +253,8 @@ The unit assumes ROS 2 Lyrical in `/opt/ros/lyrical` and the `pollen` user
 with the Python SDK's (they agree to 1e-13 rad); it needs the SDK installed.
 Both drivers have unit tests that run on the fake bus (`colcon test`); the C++
 driver's tests are gtest, the Python driver's are pytest. The Python driver is a
-reference implementation limited to `replay_motion` and `list_motions`; the C++ driver
+reference implementation limited to `replay_motion`, `list_motions`, `wake_up` and
+`go_to_sleep`; the C++ driver
 (the one `reachy_mini` installs) has the full skill set.
 
 `reachy_mini_description/README.md` explains how the URDF is generated from the

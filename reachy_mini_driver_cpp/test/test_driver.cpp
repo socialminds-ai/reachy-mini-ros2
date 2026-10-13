@@ -35,6 +35,7 @@
 #include "reachy_mini_driver_cpp/bus.hpp"
 #include "reachy_mini_driver_cpp/driver_node.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "std_skills/action/empty.hpp"
 #include "std_skills/msg/result.hpp"
 #include "tf2_msgs/msg/tf_message.hpp"
 
@@ -47,6 +48,7 @@ using ExecuteJointTrajectory = motions_skills::action::ExecuteJointTrajectory;
 using LookAt = interaction_skills::action::LookAt;
 using ListMotions = motions_skills::srv::ListMotions;
 using Result = std_skills::msg::Result;
+using EmptySkill = std_skills::action::Empty;
 
 namespace
 {
@@ -303,6 +305,45 @@ TEST_F(DriverTest, ReplayMotionUnknownNameListsTheMotions)
   EXPECT_NE(last_message.find("nod"), std::string::npos);
   goal.name = "";
   EXPECT_EQ(run<ReplayMotion>("/skill/replay_motion", goal, feedbacks), Result::ROS_EBADMSG);
+}
+
+TEST_F(DriverTest, GoToSleepAndWakeUp)
+{
+  awake();
+  auto antennas_at = [this](const std::array<double, 2> & a) {
+      return std::fabs(bus->positions[7] - a[0]) < 1e-2 &&
+             std::fabs(bus->positions[8] - a[1]) < 1e-2;
+    };
+  int feedbacks = 0;
+  EmptySkill::Goal sleep;
+  sleep.meta.caller = "test";
+  EXPECT_EQ(run<EmptySkill>("/skill/go_to_sleep", sleep, feedbacks), Result::ROS_ENOERR);
+  EXPECT_TRUE(antennas_at(reachy_mini_driver::kSleepAntennas));
+  EXPECT_GT(feedbacks, 0);
+  EXPECT_TRUE(bus->torque);   // asleep, not released
+
+  // default wake-up: a goto to the rest pose, torque back on if it was off
+  bus->torque = false;
+  ReplayMotion::Goal wake;
+  wake.meta.caller = "test";
+  EXPECT_EQ(run<ReplayMotion>("/skill/wake_up", wake, feedbacks), Result::ROS_ENOERR);
+  EXPECT_TRUE(bus->torque);
+  EXPECT_TRUE(antennas_at(reachy_mini_driver::kInitAntennas));
+  EXPECT_NEAR(bus->positions[0], 0.0, 1e-3);
+
+  // with an animation: played, then back to the rest pose
+  wake.name = "nod";
+  bool wiggled = false;
+  auto antenna_down = [this] {return std::fabs(bus->positions[7] + 0.3) < 0.1;};
+  std::thread checker([&] {wiggled = waitFor(antenna_down, 6000ms);});
+  EXPECT_EQ(run<ReplayMotion>("/skill/wake_up", wake, feedbacks), Result::ROS_ENOERR);
+  checker.join();
+  EXPECT_TRUE(wiggled);
+  EXPECT_TRUE(antennas_at(reachy_mini_driver::kInitAntennas));
+
+  wake.name = "does_not_exist";
+  EXPECT_EQ(run<ReplayMotion>("/skill/wake_up", wake, feedbacks), Result::ROS_EBADMSG);
+  EXPECT_NE(last_message.find("nod"), std::string::npos);
 }
 
 TEST_F(DriverTest, HigherPriorityPreemptsLowerIsRejected)

@@ -111,6 +111,21 @@ std_skills::msg::Result makeResult(uint8_t code, const std::string & msg = "")
   return r;
 }
 
+/// End a goal with the std_skills code returned by runMotion.
+template<typename Action>
+void finishGoal(std::shared_ptr<rclcpp_action::ServerGoalHandle<Action>> handle, uint8_t code)
+{
+  auto result = std::make_shared<typename Action::Result>();
+  result->result = makeResult(code);
+  if (code == std_skills::msg::Result::ROS_ENOERR) {
+    handle->succeed(result);
+  } else if (code == std_skills::msg::Result::ROS_ECANCELED && handle->is_canceling()) {
+    handle->canceled(result);   // otherwise cancelled by the driver itself (shutdown): aborted
+  } else {
+    handle->abort(result);
+  }
+}
+
 std::string join(const std::vector<std::string> & v)
 {
   std::string out;
@@ -281,6 +296,28 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
     },
     [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle) {
       runGoal("look_at", [this, handle] {executeLookAt(handle);});
+    });
+  wake_up_server_ = rclcpp_action::create_server<ReplayMotion>(
+    this, ns + "/wake_up",
+    [motion_goal_cb](const rclcpp_action::GoalUUID &, std::shared_ptr<const ReplayMotion::Goal> g) {
+      return motion_goal_cb(g->meta.priority);
+    },
+    [](std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>>) {
+      return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle) {
+      runGoal("wake_up", [this, handle] {executeWakeUp(handle);});
+    });
+  sleep_server_ = rclcpp_action::create_server<EmptySkill>(
+    this, ns + "/go_to_sleep",
+    [motion_goal_cb](const rclcpp_action::GoalUUID &, std::shared_ptr<const EmptySkill::Goal> g) {
+      return motion_goal_cb(g->meta.priority);
+    },
+    [](std::shared_ptr<rclcpp_action::ServerGoalHandle<EmptySkill>>) {
+      return rclcpp_action::CancelResponse::ACCEPT;
+    },
+    [this](std::shared_ptr<rclcpp_action::ServerGoalHandle<EmptySkill>> handle) {
+      runGoal("go_to_sleep", [this, handle] {executeGoToSleep(handle);});
     });
   list_service_ = create_service<ListMotions>(
     ns + "/list_motions",
@@ -685,6 +722,45 @@ std::vector<std::string> DriverNode::allMotionNames() const
   return std::vector<std::string>(names.begin(), names.end());
 }
 
+std::shared_ptr<const RecordedMove> DriverNode::findMove(const std::string & name)
+{
+  try {
+    return library_.get(name);
+  } catch (const std::exception &) {
+    for (const auto & ds : extra_datasets_) {
+      try {
+        return library_.get(name, ds);
+      } catch (const std::exception &) {
+      }
+    }
+  }
+  throw std::runtime_error("unknown motion '" + name + "'");
+}
+
+std::shared_ptr<const RecordedMove> DriverNode::gotoMove(
+  const Pose & head, const std::array<double, 2> & antennas, double body_yaw, double duration)
+{
+  Command from;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    from = limiter_.command();
+  }
+  const Command to{head, antennas, body_yaw};
+  duration = std::max(gotoDuration(from, to, smooth_limits_, duration), 0.02);
+  // the eased profile of the gotos, sampled at 100 Hz
+  const int n = static_cast<int>(std::ceil(duration * 100.0));
+  std::vector<MoveSample> samples;
+  for (int i = 0; i <= n; ++i) {
+    const double s = ease(static_cast<double>(i) / n);
+    samples.push_back(
+      {duration * i / n, interpolate(from.head, to.head, s),
+        {from.antennas[0] + (to.antennas[0] - from.antennas[0]) * s,
+          from.antennas[1] + (to.antennas[1] - from.antennas[1]) * s},
+        from.body_yaw + (to.body_yaw - from.body_yaw) * s});
+  }
+  return std::make_shared<const RecordedMove>(std::move(samples));
+}
+
 void DriverNode::executeReplayMotion(
   std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle)
 {
@@ -695,20 +771,7 @@ void DriverNode::executeReplayMotion(
     if (goal->name.empty()) {
       throw std::runtime_error("empty motion name");
     }
-    try {
-      move = library_.get(goal->name);
-    } catch (const std::exception &) {
-      for (const auto & ds : extra_datasets_) {
-        try {
-          move = library_.get(goal->name, ds);
-          break;
-        } catch (const std::exception &) {
-        }
-      }
-      if (!move) {
-        throw std::runtime_error("unknown motion '" + goal->name + "'");
-      }
-    }
+    move = findMove(goal->name);
   } catch (const std::exception & e) {
     // the spec asks for the list of available motions in that case
     result->result = makeResult(
@@ -723,15 +786,7 @@ void DriverNode::executeReplayMotion(
     std::make_shared<CartesianMotion>(move), goal->name, goal->meta.priority,
     motion_initial_goto_);
   auto feedback = std::make_shared<ReplayMotion::Feedback>();
-  const uint8_t code = runMotion(exec, handle, feedback);
-  result->result = makeResult(code);
-  if (code == Result::ROS_ENOERR) {
-    handle->succeed(result);
-  } else if (code == Result::ROS_ECANCELED && handle->is_canceling()) {
-    handle->canceled(result);   // otherwise cancelled by the driver itself (shutdown): aborted
-  } else {
-    handle->abort(result);
-  }
+  finishGoal(handle, runMotion(exec, handle, feedback));
 }
 
 void DriverNode::executeCartesianTrajectory(
@@ -781,15 +836,7 @@ void DriverNode::executeCartesianTrajectory(
     std::make_shared<CartesianMotion>(move), "cartesian_trajectory", goal->meta.priority,
     motion_initial_goto_);
   auto feedback = std::make_shared<ExecuteCartesianTrajectory::Feedback>();
-  const uint8_t code = runMotion(exec, handle, feedback);
-  result->result = makeResult(code);
-  if (code == Result::ROS_ENOERR) {
-    handle->succeed(result);
-  } else if (code == Result::ROS_ECANCELED && handle->is_canceling()) {
-    handle->canceled(result);   // otherwise cancelled by the driver itself (shutdown): aborted
-  } else {
-    handle->abort(result);
-  }
+  finishGoal(handle, runMotion(exec, handle, feedback));
 }
 
 void DriverNode::executeJointTrajectory(
@@ -834,15 +881,71 @@ void DriverNode::executeJointTrajectory(
     goal->trajectory.joint_names.size(), motion->duration());
   auto exec = startMotion(motion, "joint_trajectory", goal->meta.priority, 0.0);
   auto feedback = std::make_shared<ExecuteJointTrajectory::Feedback>();
-  const uint8_t code = runMotion(exec, handle, feedback);
-  result->result = makeResult(code);
-  if (code == Result::ROS_ENOERR) {
-    handle->succeed(result);
-  } else if (code == Result::ROS_ECANCELED && handle->is_canceling()) {
-    handle->canceled(result);   // otherwise cancelled by the driver itself (shutdown): aborted
-  } else {
-    handle->abort(result);
+  finishGoal(handle, runMotion(exec, handle, feedback));
+}
+
+// ---------------------------------------------------------------------------
+// wake_up, go_to_sleep: gotos (and an optional animation) in the motion slot
+// ---------------------------------------------------------------------------
+void DriverNode::executeWakeUp(
+  std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle)
+{
+  const auto goal = handle->get_goal();
+  std::shared_ptr<const RecordedMove> animation;
+  if (!goal->name.empty()) {
+    try {
+      animation = findMove(goal->name);
+    } catch (const std::exception & e) {
+      auto result = std::make_shared<ReplayMotion::Result>();
+      result->result = makeResult(
+        Result::ROS_EBADMSG, std::string(e.what()) + "; available: " + join(allMotionNames()));
+      handle->abort(result);
+      return;
+    }
   }
+  RCLCPP_INFO(
+    get_logger(), "waking up%s for %s",
+    goal->name.empty() ? "" : (" with '" + goal->name + "'").c_str(),
+    goal->meta.caller.empty() ? "unknown" : goal->meta.caller.c_str());
+  bus_->setTorque(true);
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    gaze_.reset();   // otherwise the gaze takes the head back once awake
+  }
+  auto feedback = std::make_shared<ReplayMotion::Feedback>();
+  uint8_t code = Result::ROS_ENOERR;
+  if (animation) {
+    auto exec = startMotion(
+      std::make_shared<CartesianMotion>(animation), goal->name, goal->meta.priority,
+      motion_initial_goto_);
+    code = runMotion(exec, handle, feedback);
+  }
+  if (code == Result::ROS_ENOERR) {
+    // the rest pose, body centred: also where an animation ends, whatever its last sample
+    const auto rest = gotoMove(kInitHeadPose, kInitAntennas, 0.0, 2.0);
+    auto exec = startMotion(
+      std::make_shared<CartesianMotion>(rest), "wake_up", goal->meta.priority, 0.0);
+    code = runMotion(exec, handle, feedback);
+  }
+  finishGoal(handle, code);
+}
+
+void DriverNode::executeGoToSleep(
+  std::shared_ptr<rclcpp_action::ServerGoalHandle<EmptySkill>> handle)
+{
+  const auto goal = handle->get_goal();
+  RCLCPP_INFO(
+    get_logger(), "going to sleep for %s",
+    goal->meta.caller.empty() ? "unknown" : goal->meta.caller.c_str());
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    gaze_.reset();
+  }
+  const auto sleep = gotoMove(kSleepHeadPose, kSleepAntennas, 0.0, 2.0);
+  auto exec = startMotion(
+    std::make_shared<CartesianMotion>(sleep), "go_to_sleep", goal->meta.priority, 0.0);
+  auto feedback = std::make_shared<EmptySkill::Feedback>();
+  finishGoal(handle, runMotion(exec, handle, feedback));
 }
 
 // ---------------------------------------------------------------------------

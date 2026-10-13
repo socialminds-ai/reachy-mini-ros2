@@ -25,8 +25,9 @@ import rclpy
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
 from reachy_mini_driver.bus import FakeBus
-from reachy_mini_driver.driver_node import DriverNode, INIT_ANTENNAS
+from reachy_mini_driver.driver_node import DriverNode, INIT_ANTENNAS, SLEEP_ANTENNAS
 from sensor_msgs.msg import JointState
+from std_skills.action import Empty as EmptySkill
 from std_skills.msg import Result
 from tf2_msgs.msg import TFMessage
 
@@ -137,6 +138,59 @@ def test_replay_motion_unknown_lists_the_motions(driver):
     result = result_future.result().result.result
     assert result.error_code == Result.ROS_EBADMSG
     assert 'nod' in result.error_msg
+    client_node.destroy_node()
+
+
+def run_goal(client_node, action_type, name, goal):
+    """Send `goal` to the action `name` and wait for its std_skills result."""
+    client = ActionClient(client_node, action_type, name)
+    assert client.wait_for_server(timeout_sec=5.0)
+    future = client.send_goal_async(goal)
+    rclpy.spin_until_future_complete(client_node, future, timeout_sec=5.0)
+    result_future = future.result().get_result_async()
+    rclpy.spin_until_future_complete(client_node, result_future, timeout_sec=10.0)
+    return result_future.result().result.result
+
+
+def test_go_to_sleep_and_wake_up(driver):
+    node, bus = driver
+    time.sleep(2.2)
+    client_node = rclpy.create_node('client4')
+
+    def antennas_at(a):
+        return abs(bus.positions[7] - a[0]) < 1e-2 and abs(bus.positions[8] - a[1]) < 1e-2
+
+    sleep = EmptySkill.Goal()
+    sleep.meta.caller = 'test'
+    assert run_goal(client_node, EmptySkill, '/skill/go_to_sleep', sleep).error_code == \
+        Result.ROS_ENOERR
+    assert antennas_at(SLEEP_ANTENNAS)
+    assert bus.torque                            # asleep, not released
+
+    # default wake-up: a goto to the rest pose, torque back on if it was off
+    bus.torque = False
+    wake = ReplayMotion.Goal()
+    assert run_goal(client_node, ReplayMotion, '/skill/wake_up', wake).error_code == \
+        Result.ROS_ENOERR
+    assert bus.torque
+    assert antennas_at(INIT_ANTENNAS)
+    assert abs(bus.positions[0]) < 1e-3
+
+    # with an animation: played, then back to the rest pose
+    wiggled = []
+    checker = threading.Thread(target=lambda: wiggled.append(
+        wait_for(lambda: abs(bus.positions[7] + 0.3) < 0.1, timeout=6.0)))
+    checker.start()
+    wake.name = 'nod'
+    assert run_goal(client_node, ReplayMotion, '/skill/wake_up', wake).error_code == \
+        Result.ROS_ENOERR
+    checker.join()
+    assert wiggled == [True]
+    assert antennas_at(INIT_ANTENNAS)
+
+    wake.name = 'does_not_exist'
+    result = run_goal(client_node, ReplayMotion, '/skill/wake_up', wake)
+    assert result.error_code == Result.ROS_EBADMSG and 'nod' in result.error_msg
     client_node.destroy_node()
 
 

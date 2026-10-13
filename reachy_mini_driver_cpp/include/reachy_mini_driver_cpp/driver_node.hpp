@@ -26,7 +26,9 @@
 //
 // Skills (paths under the `skills_namespace` parameter, default /skill):
 //   replay_motion, list_motions, execute_cartesian_trajectory,
-//   execute_joint_trajectory (motions_skills) and look_at (interaction_skills).
+//   execute_joint_trajectory (motions_skills) and look_at (interaction_skills); plus
+//   wake_up (motions_skills/ReplayMotion: an optional animation, then the rest pose) and
+//   go_to_sleep (std_skills/Empty), which run in the motion slot like the motions.
 // Results use the std_skills error codes; a motion goal with a priority greater
 // than or equal to the running one preempts it (ROS_EINTR), a lower one is rejected.
 
@@ -59,6 +61,7 @@
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_skills/action/empty.hpp"
 #include "std_skills/msg/result.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_broadcaster.h"
@@ -75,6 +78,7 @@ public:
   using ExecuteJointTrajectory = motions_skills::action::ExecuteJointTrajectory;
   using LookAt = interaction_skills::action::LookAt;
   using ListMotions = motions_skills::srv::ListMotions;
+  using EmptySkill = std_skills::action::Empty;
   using Result = std_skills::msg::Result;
 
   /// `bus` overrides the serial_port parameter (tests).
@@ -161,6 +165,13 @@ private:
   /// Head pose that points the head towards `point` (in the base frame).
   Pose lookPose(const Eigen::Vector3d & point) const;
   bool acceptMotionGoal(uint8_t priority);
+  /// The move `name`, from the default library or one of extra_datasets_. Throws.
+  std::shared_ptr<const RecordedMove> findMove(const std::string & name);
+  /// A goto from the commanded pose, as a move (so that it runs in the motion slot):
+  /// `duration` seconds or longer if the smooth speed limits need it.
+  std::shared_ptr<const RecordedMove> gotoMove(
+    const Pose & head, const std::array<double, 2> & antennas, double body_yaw,
+    double duration);
 
   void executeReplayMotion(
     std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle);
@@ -173,6 +184,8 @@ private:
   void runGoal(const std::string & skill, std::function<void()> execute);
   /// Wait (bounded) for the goal threads to end; call once their motion/gaze is cancelled.
   void waitForGoalThreads();
+  void executeWakeUp(std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle);
+  void executeGoToSleep(std::shared_ptr<rclcpp_action::ServerGoalHandle<EmptySkill>> handle);
   void executeLookAt(std::shared_ptr<rclcpp_action::ServerGoalHandle<LookAt>> handle);
   /// Warn loudly if `frame` is a robot frame that moves with the gaze; call under mutex_.
   void checkTrackedFrame(const std::string & frame);
@@ -229,6 +242,8 @@ private:
   rclcpp_action::Server<ExecuteCartesianTrajectory>::SharedPtr cartesian_server_;
   rclcpp_action::Server<ExecuteJointTrajectory>::SharedPtr joint_server_;
   rclcpp_action::Server<LookAt>::SharedPtr look_at_server_;
+  rclcpp_action::Server<ReplayMotion>::SharedPtr wake_up_server_;
+  rclcpp_action::Server<EmptySkill>::SharedPtr sleep_server_;
   rclcpp::Service<ListMotions>::SharedPtr list_service_;
 };
 

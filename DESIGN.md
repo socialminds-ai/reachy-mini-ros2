@@ -304,7 +304,8 @@ callback in C++). That thread never touches the bus:
 A cancelled move leaves the robot where it is. A joint-space motion ends by resetting
 the Cartesian targets to where the joints actually are, so the next tick's IK does not
 snap the head back. The same `Goto` mechanism (`Goto` in `driver_node.py`,
-`DriverNode::Goto` in C++) serves the wake-up and sleep sequences.
+`DriverNode::Goto` in C++) serves the wake-up and sleep sequences at startup and exit;
+the `wake_up` and `go_to_sleep` skills run their gotos as motions instead (see below).
 
 ### look_at
 
@@ -381,8 +382,29 @@ passed (the executor may already be gone), then `set_torque(False)`. The head re
 its mechanical stop, nothing is left powered against gravity, and the daemon can take
 over cleanly.
 
-This sequence needs a live ROS context and a few seconds, which dictates how the process
-is stopped. In Python, `rclpy`'s default SIGINT handler tears the context down at once,
+Wake-up and sleep are also skills, for a behaviour that puts the robot to sleep and
+wakes it up while the driver keeps running: `wake_up` (`motions_skills/ReplayMotion`)
+and `go_to_sleep` (`std_skills/Empty`). They reuse standard interfaces rather than adding
+Reachy-specific ones: `go_to_sleep` takes nothing but the skill metadata, and `wake_up`
+takes an optional motion name, which is exactly a `ReplayMotion` goal (an empty `name`
+means the default wake-up, a goto). Both are actions rather than services: they last
+from 2 s to the 15 s of `wake-mini-up`, and can be cancelled or preempted.
+
+They run in the motion slot rather than as plain gotos, so priorities, preemption,
+cancel and feedback work as for any motion, and nothing can silently override them: a
+plain goto is dropped by the next motion, and would let a `look_at` gaze take the head
+back once over (the gaze is cleared when they start). The goto is therefore turned into
+a move (`gotoMove` in C++, `GotoMove` in Python): from the commanded pose to the target,
+sampled along the gotos' easing (C++), at least 2 s, longer if the smooth limits need
+it. `wake_up` turns the torque on first (the motors may have been released), plays the
+animation if one is named (with the usual glide to its first sample: `wake-mini-up`
+starts from the sleep pose), then the goto to the rest pose, so it always ends in the
+same pose whatever the animation's last sample. `go_to_sleep` leaves the torque on:
+releasing it is for the end of the process, when another program (the daemon) takes the
+servos over; a running driver keeps holding the head.
+
+The exit sequence needs a live ROS context and a few seconds, which dictates how the
+process is stopped. In Python, `rclpy`'s default SIGINT handler tears the context down at once,
 so `main()` initialises with `SignalHandlerOptions.NO`, installs a SIGINT/SIGTERM handler
 that only sets an event, spins with `spin_once` until it is set, then runs
 `node.shutdown()` before `rclpy.shutdown()`. In C++, `main.cpp` lets `rclcpp`'s default
@@ -485,7 +507,10 @@ environment; `colcon test` runs them all in a `ros:lyrical` container.
   at rest height; `replay_motion` on `test/moves/nod.json` (a 1 s nod, antennas to
   -0.3/+0.3 rad at 0.5 s) accepted, wiggling the antennas, sending feedback and
   returning `ROS_ENOERR`; an unknown name answered with `ROS_EBADMSG` and the available
-  names; `list_motions` returning `nod`. The C++ tests add the priority rules (a lower
+  names; `list_motions` returning `nod`; `go_to_sleep` reaching `SLEEP_ANTENNAS` with the
+  torque still on, then `wake_up` turning the torque back on and reaching the rest pose,
+  with no name (a goto) and with `nod` as the animation (played, then the rest pose),
+  and an unknown animation answered with `ROS_EBADMSG`. The C++ tests add the priority rules (a lower
   priority goal rejected, an equal one preempting with `ROS_EINTR` for the loser), a
   Cartesian and a joint trajectory moving the fake servos (and `safe_mode` refusing the
   platform joints), and `look_at` looking, glancing back, resetting, settling on a target given in the
