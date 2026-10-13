@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_expressions_data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.3.1 (2026-10-08)
 ------------------
 

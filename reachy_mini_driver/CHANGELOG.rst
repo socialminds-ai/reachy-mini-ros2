@@ -2,6 +2,24 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* driver: wake_up and go_to_sleep skills
+  Wake-up and sleep only happened at startup and exit. They are now also
+  actions, with standard interfaces:
+  - /skill/wake_up (motions_skills/ReplayMotion): torque on, then a goto to
+  the rest pose; with a name (e.g. wake-mini-up), plays that motion first,
+  then the goto, so it always ends in the rest pose;
+  - /skill/go_to_sleep (std_skills/Empty): a goto to the sleep pose; the
+  motors stay on.
+  Both run in the motion slot (the goto turned into a move), so priority,
+  preemption, cancel and feedback work as for any motion, and they clear
+  the look_at gaze. Implemented in the C++ and Python drivers, with tests;
+  the C++ driver test gets a 180 s timeout (it went past ctest's 60 s).
+  The goal-finishing code is shared (finishGoal / _finish).
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.3.1 (2026-10-08)
 ------------------
 * driver: centre the body yaw on wake-up and sleep
