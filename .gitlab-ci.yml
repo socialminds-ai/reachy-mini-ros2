@@ -59,7 +59,10 @@ stages:
     - SUFFIX=$([ "$FULL" = 1 ] && echo -full || true)
     - IMAGE=$HARBOR_HOST/$HARBOR_PROJECT/reachy-mini-ros
     - echo "image $IMAGE:$VERSION$SUFFIX"
+    # No attestations: they make the image an index of two manifests, and
+    # Harbor then refuses the second tag (412 Precondition Failed)
     - docker buildx build --platform linux/arm64 --build-arg FULL=$FULL
+        --provenance=false --sbom=false
         -t "$IMAGE:lyrical$SUFFIX"
         -t "$IMAGE:$VERSION$SUFFIX"
         --push docker/
