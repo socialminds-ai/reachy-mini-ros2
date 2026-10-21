@@ -1,0 +1,29 @@
+# asr_whistle on the Reachy Mini, merged by launch_pal over asr_whistle's
+# 00-defaults.yml (override it in ~/.pal/config/).
+#
+# Speech recognition on mic_frontend's head channel, with thresholds measured
+# on this robot (Raspberry Pi CM4, XVF3800 card):
+/asr_whistle:
+  ros__parameters:
+    mic_namespaces: ['/audio/head']
+
+    # 3 of the 4 cores: leaves one to the servo driver, mic_frontend and
+    # PipeWire (or a TTS). Also faster than 4 on the CM4, where a 4th thread
+    # waits on cores busy with those (real-time factor 0.12 greedy, 0.21 with
+    # 5 beams; 0.14 and 0.27 with 2 threads).
+    n_threads: 3
+
+    # The head mic's VAD drops out between words: without a hangover, every
+    # sentence comes out as one-word utterances.
+    vad_hangover_ms: 500
+    min_speech_ms: 200
+
+    # Speech measured 32-40 dB of loudness range (also from 2 m away), the
+    # robot's own noise and room noise (steps, handling, typing) mostly
+    # 9-24 dB: 25 dB rejects ~90% of the noise with a 7 dB margin on speech.
+    min_loudness_range_db: 25.0
+
+  remappings:
+    # Pause ASR while the robot's speaker plays (same QoS: reliable,
+    # transient local), on top of the XVF3800's echo cancellation.
+    robot_speaking: /pw_audio_play/is_playing

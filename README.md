@@ -427,6 +427,7 @@ the robot (section 2.1). Each check names what to look at if it fails
 | microphones | `ros2 topic hz /audio/head/raw` | about 100 Hz (10 ms chunks) |
 | | `ros2 topic echo /audio/head/voice_detected` | `true` while someone speaks near the robot |
 | | `python3 tools/record_audio.py /audio/head/raw head.wav 10`, then `aplay head.wav` | 10 s of clear speech, no dropouts or clicks |
+| speech recognition | `ros2 topic echo /humans/voices/head/speech` | what you say near the robot, as `incremental` then `final` text, in a second or so |
 | speaker | `python3 tools/play_audio.py` (a piano sample from the web; or a WAV file, or `tone`) | the robot plays it cleanly; `ros2 topic echo /pw_audio_play/is_playing` says `true` meanwhile |
 | everything together | RViz, section 2.3 | the model moves with the robot, the camera image shows |
 

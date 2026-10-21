@@ -7,7 +7,8 @@ driver). The reasons behind the design are in [DESIGN.md](DESIGN.md).
 ## The launch file
 
 `ros2 launch reachy_mini driver.launch.py` starts the whole robot: the servo
-driver, `robot_state_publisher` with the robot model, the camera and the audio.
+driver, `robot_state_publisher` with the robot model, the camera, the audio and
+speech recognition.
 
 | argument | default | |
 |---|---|---|
@@ -17,6 +18,7 @@ driver, `robot_state_publisher` with the robot model, the camera and the audio.
 | `description` | `true` | `robot_state_publisher` with the `reachy_mini_description` model |
 | `camera` | `true` | `reachy_mini_camera_driver` |
 | `audio` | `true` | `mic_frontend` and `pw_audio_play` |
+| `asr` | `true` | speech recognition (`asr_whistle`); needs `audio` |
 
 ## The driver node
 
@@ -179,6 +181,30 @@ These settings are in `reachy_mini/config/mic_frontend/` and
 `reachy_mini/config/pw_audio_play/`; the `reachy_mini` package registers them
 with launch_pal, which merges them over the nodes' own defaults whenever their
 launch files run. Override them with a file in `~/.pal/config/`.
+
+## Speech recognition: `asr_whistle`
+
+[asr_whistle](https://gitlab.iiia.csic.es/socialminds/audio/asr_whistle) runs
+the Whistle speech recognition model (English, German, French, Spanish, Italian,
+Dutch, Polish) on the robot's CPU, on the head microphone, following the
+[ROS4HRI](https://ros4hri.github.io/) conventions:
+
+| node | | |
+|---|---|---|
+| `asr_whistle` | subscribes | `/audio/head/raw`, `/audio/head/info`, `/audio/head/voice_detected`; `/pw_audio_play/is_playing` (ASR pauses while the robot speaks) |
+| | publishes | `/humans/voices/head/speech` (`hri_msgs/LiveSpeech`: incremental transcriptions while someone speaks, then a `final`), `/humans/voices/head/is_speaking`, `/humans/voices/tracked` |
+
+`reachy_mini/config/asr_whistle/` holds the settings measured on this robot: 3
+inference threads (faster than 4 on the CM4, and one core left to the driver
+and the audio), a 500 ms hangover after the VAD's voice-off edges (it drops out
+between words), and a 25 dB loudness-range gate against the robot's own noise
+and room noise (speech measured 32-40 dB, noise mostly 9-24 dB). A transcription
+takes ~0.2 s per second of speech (5-beam search). The node logs the CPU
+configuration it detected at startup, and the loudness range of every utterance
+it recognises or drops, to retune the gate for another room.
+
+Single words like "yes" are recognised; very loud non-speech sounds (an object
+dropped on the table) can still come out as a short phrase ("Thank you.").
 
 ## Other installations
 

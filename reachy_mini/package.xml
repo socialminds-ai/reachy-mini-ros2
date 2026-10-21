@@ -19,6 +19,7 @@
   <exec_depend>reachy_mini_camera_driver</exec_depend>
   <exec_depend>mic_frontend</exec_depend>
   <exec_depend>pw_audio_play</exec_depend>
+  <exec_depend>asr_whistle</exec_depend>
   <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
