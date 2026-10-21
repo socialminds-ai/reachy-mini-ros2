@@ -2,8 +2,8 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.5.0 (2026-10-21)
+------------------
 * reachy_mini: speech recognition with asr_whistle
   driver.launch.py starts asr_whistle on the head microphone (new `asr`
   argument, default true; needs `audio`), and reachy_mini depends on it.
