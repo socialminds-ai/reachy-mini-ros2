@@ -2,6 +2,21 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* reachy_mini: speech recognition with asr_whistle
+  driver.launch.py starts asr_whistle on the head microphone (new `asr`
+  argument, default true; needs `audio`), and reachy_mini depends on it.
+  config/asr_whistle/10-reachy-mini.yml, registered with launch_pal,
+  holds the settings measured on the robot: 3 inference threads (faster
+  than 4 on the CM4, where a 4th thread waits on cores busy with the
+  driver and the audio, and one core left free), a 500 ms VAD hangover
+  (the head mic's VAD drops out between words), a 25 dB loudness-range
+  gate (speech 32-40 dB, the robot's and room's noise mostly 9-24 dB),
+  and robot_speaking remapped to /pw_audio_play/is_playing.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.4.0 (2026-10-13)
 ------------------
 

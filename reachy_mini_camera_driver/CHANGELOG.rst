@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_camera_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.4.0 (2026-10-13)
 ------------------
 
