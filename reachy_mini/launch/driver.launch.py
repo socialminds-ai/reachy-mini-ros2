@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Launch the whole Reachy Mini: the servo driver (parameters of config/driver.yaml),
-the robot model, the camera and the audio (microphones and speaker).
+Launch the whole Reachy Mini.
+
+The servo driver (parameters of config/driver.yaml), the robot model, the
+camera and the audio (microphones and speaker).
 
     ros2 launch reachy_mini driver.launch.py                    # everything, C++ driver
     ros2 launch reachy_mini driver.launch.py lang:=python       # Python driver
