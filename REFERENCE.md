@@ -7,8 +7,8 @@ driver). The reasons behind the design are in [DESIGN.md](DESIGN.md).
 ## The launch file
 
 `ros2 launch reachy_mini driver.launch.py` starts the whole robot: the servo
-driver, `robot_state_publisher` with the robot model, the camera, the audio and
-speech recognition.
+driver, `robot_state_publisher` with the robot model, the robot blackboard, the
+camera, the audio, speech recognition and the head taps.
 
 | argument | default | |
 |---|---|---|
@@ -19,6 +19,7 @@ speech recognition.
 | `camera` | `true` | `reachy_mini_camera_driver` |
 | `audio` | `true` | `mic_frontend` and `pw_audio_play` |
 | `asr` | `true` | speech recognition (`asr_whistle`); needs `audio` |
+| `head_taps` | `true` | 3 taps on the head wake the robot up, 4 put it to sleep (`reachy_mini_head_taps`); needs `audio` |
 
 ## The driver node
 
@@ -27,7 +28,7 @@ executable `driver_node`:
 
 | | |
 |---|---|
-| parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `extra_datasets` (more libraries searched by the motion skills), `wake_up_on_start`, `sleep_on_shutdown`, `publish_tf`, `base_frame`, `skills_namespace` (`/skill`), `motion_initial_goto` (0.5 s), `glance_duration` (2 s, C++ only), `tracking_lost_timeout` (1 s, C++ only), the speed limits `max_speed.*`, `max_acceleration.*` and `safety_max_speed.*` (C++ only, see below) |
+| parameters | `serial_port` (`/dev/ttyAMA3` on the robot, or `fake` for an ideal simulated bus), `rate` (50 Hz), `dataset` (default move library), `extra_datasets` (more libraries searched by the motion skills), `wake_up_on_start` (false: the driver starts asleep, see below), `sleep_on_shutdown`, `awake_parameter` (`/robot_blackboard/awake`, see below), `publish_tf`, `base_frame`, `skills_namespace` (`/skill`), `motion_initial_goto` (0.5 s), `glance_duration` (2 s, C++ only), `tracking_lost_timeout` (1 s, C++ only), the speed limits `max_speed.*`, `max_acceleration.*` and `safety_max_speed.*` (C++ only, see below) |
 | publishes | `joint_states` (9 joints: body_yaw, stewart_1..6, right_antenna, left_antenna), `~/head_pose`, and on `/tf` the frames `robot_state_publisher` cannot derive from joint angles: `base_link -> head` (forward kinematics of the Stewart platform) and `base_link -> rod_1..6` |
 | subscribes | `~/target_head_pose` (geometry_msgs/PoseStamped), `~/target_antennas` (reachy_mini_msgs/AntennasTarget), `~/target_body_yaw` (std_msgs/Float64) |
 | skills | see below: the driver implements the [ROS4HRI skills](https://ros4hri.github.io/skills/) that map onto the hardware, under `skills_namespace` (`/skill` by default) |
@@ -49,6 +50,23 @@ instance, reach 7 to 10 rad/s) but not for the jumps of a few milliseconds some
 recordings contain. Gotos (wake-up, sleep, `wake_up`, `go_to_sleep`, `reset`, the
 glide to a motion's first sample) last as long as the smooth limits require, and start and stop at rest.
 Wake-up and sleep also bring the body yaw back to 0, whatever it was at startup.
+
+**Asleep or awake.** The driver starts asleep: motors on, a goto to the sleep
+pose, then the antennas wiggle twice (about 1 s): the driver is ready.
+`wake_up_on_start: true` starts awake instead, in the rest pose. Whether the
+robot is awake is written to `awake_parameter`, a parameter of the robot
+blackboard (`/robot_blackboard/awake`, from the `robot_blackboard` package,
+which the launch file starts): false at start, set as soon as `wake_up` (true)
+or `go_to_sleep` (false) is called, before their motion, and false at exit. The
+driver writes it again whenever the blackboard (re)starts. Other nodes follow
+it: `asr_whistle` only listens while the robot is awake, and
+`reachy_mini_head_taps` (started by the launch file, see its README) wakes the
+robot up when its head is tapped 3 times, or puts it to sleep on 4 taps,
+unless it already is.
+
+```sh
+ros2 param get /robot_blackboard awake
+```
 
 | part | `max_speed.` | `max_acceleration.` | `safety_max_speed.` |
 |---|---|---|---|
@@ -72,8 +90,8 @@ behaviour node can use it without knowing anything Reachy-specific: the goals ca
 |---|---|---|---|---|
 | `/skill/replay_motion` | action `motions_skills/ReplayMotion` | yes | yes | plays a recorded move by `name`, from `dataset` (by default `package://reachy_mini_expressions_data/emotions`, Pollen's emotions library as installed by `reachy_mini_expressions_data`; also a local directory of move JSON files, or a HuggingFace dataset such as `pollen-robotics/reachy-mini-emotions-library`) or one of `extra_datasets` (by default the packaged dances); unknown name -> `ROS_EBADMSG` with the available names in `error_msg` |
 | `/skill/list_motions` | service `motions_skills/ListMotions` | yes | yes | the names `replay_motion` accepts |
-| `/skill/wake_up` | action `motions_skills/ReplayMotion` | yes | yes | turns the motors on (if they were off), then goes to the rest pose (head upright, antennas slightly outwards, body yaw 0) in a goto of 2 s (longer if the speed limits need it). With a `name` (any motion `replay_motion` accepts, e.g. `wake-mini-up`, Pollen's wake-up animation), plays that motion first, then the goto to the rest pose, so the robot always ends up in the same pose. Unknown name -> `ROS_EBADMSG` with the available names. `unsafe` is ignored |
-| `/skill/go_to_sleep` | action `std_skills/Empty` | yes | yes | goes to the sleep pose (head tilted forward and down onto its stop, antennas folded back, body yaw 0) in a goto of 2 s (longer if the speed limits need it). The motors stay on: they are released only when the driver exits (`sleep_on_shutdown`) |
+| `/skill/wake_up` | action `motions_skills/ReplayMotion` | yes | yes | sets `/robot_blackboard/awake` to true, turns the motors on (if they were off), then goes to the rest pose (head upright, antennas slightly outwards, body yaw 0) in a goto of 2 s (longer if the speed limits need it). With a `name` (any motion `replay_motion` accepts, e.g. `wake-mini-up`, Pollen's wake-up animation), plays that motion first, then the goto to the rest pose, so the robot always ends up in the same pose. Unknown name -> `ROS_EBADMSG` with the available names. `unsafe` is ignored |
+| `/skill/go_to_sleep` | action `std_skills/Empty` | yes | yes | sets `/robot_blackboard/awake` to false, goes to the sleep pose (head tilted forward and down onto its stop, antennas folded back, body yaw 0) in a goto of 2 s (longer if the speed limits need it). The motors stay on: they are released only when the driver exits (`sleep_on_shutdown`) |
 | `/skill/execute_cartesian_trajectory` | action `motions_skills/ExecuteCartesianTrajectory` | yes | no | `moveit_msgs/CartesianTrajectory` for `tracked_frame` `head`, poses in `base_frame` (the head frame sits about 0.177 m above `base_link` at rest, see `/tf`): head poses over time, linearly interpolated, IK by the driver |
 | `/skill/execute_joint_trajectory` | action `motions_skills/ExecuteJointTrajectory` | yes | no | `trajectory_msgs/JointTrajectory` on any of the 9 joints, bypassing the kinematics; `safe_mode` (default true) refuses the `stewart_*` joints, since driving them one by one can strain the platform |
 | `/skill/look_at` | action `interaction_skills/LookAt` | yes | no | `policy` empty: keep the head pointed at `target` (any TF frame, resolved once when the goal arrives, so a frame moving with the robot is fine) until a new goal or a reset; `tracking` (the `TRACKING` constant): follow `target`, re-evaluated every tick, until cancelled, replaced (`ROS_EINTR`) or lost for `tracking_lost_timeout` (`ROS_EOTHER`); tracking a robot frame other than `base_link` logs a warning, as it cannot settle; `glance` (the `GLANCE` constant): look for `glance_duration` then come back; `reset`: back to the rest pose. `random`, `social` and `auto` (which need perception) return `ROS_ENOTSUP` |
@@ -191,7 +209,7 @@ Dutch, Polish) on the robot's CPU, on the head microphone, following the
 
 | node | | |
 |---|---|---|
-| `asr_whistle` | subscribes | `/audio/head/raw`, `/audio/head/info`, `/audio/head/voice_detected`; `/pw_audio_play/is_playing` (ASR pauses while the robot speaks) |
+| `asr_whistle` | subscribes | `/audio/head/raw`, `/audio/head/info`, `/audio/head/voice_detected`; `/pw_audio_play/is_playing` (ASR pauses while the robot speaks); follows `/robot_blackboard/awake` (ASR pauses while the robot is asleep) |
 | | publishes | `/humans/voices/head/speech` (`hri_msgs/LiveSpeech`: incremental transcriptions while someone speaks, then a `final`), `/humans/voices/head/is_speaking`, `/humans/voices/tracked` |
 
 `reachy_mini/config/asr_whistle/` holds the settings measured on this robot: 3

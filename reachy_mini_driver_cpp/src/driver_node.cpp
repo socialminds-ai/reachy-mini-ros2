@@ -144,7 +144,8 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
   declare_parameter("rate", 50.0);
   declare_parameter("dataset", std::string(kDefaultDataset));
   declare_parameter("extra_datasets", std::vector<std::string>{});
-  declare_parameter("wake_up_on_start", true);
+  declare_parameter("wake_up_on_start", false);
+  declare_parameter("awake_parameter", "/robot_blackboard/awake");
   declare_parameter("sleep_on_shutdown", true);
   declare_parameter("publish_tf", true);
   declare_parameter("base_frame", "base_link");
@@ -324,9 +325,40 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
     [this](const std::shared_ptr<ListMotions::Request> req,
     std::shared_ptr<ListMotions::Response> res) {listMotions(req, res);});
 
+  const std::string awake_parameter = get_parameter("awake_parameter").as_string();
+  if (!awake_parameter.empty()) {
+    const auto slash = awake_parameter.rfind('/');
+    if (awake_parameter.front() != '/' || slash == 0 || slash + 1 == awake_parameter.size()) {
+      throw std::runtime_error(
+              "awake_parameter '" + awake_parameter +
+              "' is not of the form /<node>/<parameter>");
+    }
+    awake_node_ = awake_parameter.substr(0, slash);
+    awake_param_ = awake_parameter.substr(slash + 1);
+    blackboard_ = std::make_shared<rclcpp::AsyncParametersClient>(this, awake_node_);
+    // the blackboard may start after the driver, or restart
+    blackboard_timer_ = create_wall_timer(
+      1s, [this] {
+        std::lock_guard<std::mutex> lock(awake_mutex_);
+        const bool ready = blackboard_->service_is_ready();
+        if (ready && !blackboard_ready_) {
+          awake_synced_ = false;
+        }
+        blackboard_ready_ = ready;
+        syncAwake();
+      });
+    // on Ctrl+C: once the context is shut down, nothing can be sent any more
+    pre_shutdown_handle_ = get_node_base_interface()->get_context()->add_pre_shutdown_callback(
+      [this] {setAwake(false);});
+  }
+
   bus_->setTorque(true);
   if (get_parameter("wake_up_on_start").as_bool()) {
     gotoPose(kInitHeadPose, kInitAntennas, 2.0, 0.0);   // body centred, whatever it was
+    setAwake(true);
+  } else {
+    startMotion(std::make_shared<CartesianMotion>(readyMove()), "ready", 0, 0.0);
+    setAwake(false);
   }
 
   const double rate = get_parameter("rate").as_double();
@@ -339,6 +371,10 @@ DriverNode::DriverNode(std::shared_ptr<MotorBus> bus, const rclcpp::NodeOptions 
 
 DriverNode::~DriverNode()
 {
+  if (blackboard_) {
+    get_node_base_interface()->get_context()->remove_pre_shutdown_callback(
+      pre_shutdown_handle_);
+  }
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (current_) {
@@ -761,6 +797,75 @@ std::shared_ptr<const RecordedMove> DriverNode::gotoMove(
   return std::make_shared<const RecordedMove>(std::move(samples));
 }
 
+std::shared_ptr<const RecordedMove> DriverNode::readyMove()
+{
+  // the goto to the sleep pose, then the antennas twice towards the rest pose and back
+  const auto sleep = gotoMove(kSleepHeadPose, kSleepAntennas, 0.0, 2.0);
+  std::vector<MoveSample> samples;
+  for (double t = 0.0; t < sleep->duration(); t += 0.01) {
+    samples.push_back(sleep->evaluate(t));
+    samples.back().time = t;
+  }
+  const std::array<double, 2> raised = {kSleepAntennas[0] + 0.5, kSleepAntennas[1] - 0.5};
+  const double half = 0.25;   // s, per way
+  double t0 = sleep->duration();
+  for (int i = 0; i < 4; ++i) {
+    const auto & from = i % 2 ? raised : kSleepAntennas;
+    const auto & to = i % 2 ? kSleepAntennas : raised;
+    for (int k = 0; k <= 25; ++k) {
+      const double s = ease(k / 25.0);
+      samples.push_back(
+        {t0 + half * k / 25.0, kSleepHeadPose,
+          {from[0] + (to[0] - from[0]) * s, from[1] + (to[1] - from[1]) * s}, 0.0});
+    }
+    t0 += half;
+  }
+  return std::make_shared<const RecordedMove>(std::move(samples));
+}
+
+void DriverNode::setAwake(bool awake)
+{
+  std::lock_guard<std::mutex> lock(awake_mutex_);
+  if (awake != awake_ || !blackboard_) {
+    RCLCPP_INFO(get_logger(), awake ? "awake" : "asleep");
+  }
+  awake_ = awake;
+  awake_synced_ = false;
+  syncAwake();
+}
+
+void DriverNode::syncAwake()
+{
+  if (!blackboard_ || awake_synced_ || !blackboard_->service_is_ready()) {
+    return;
+  }
+  blackboard_ready_ = true;   // seen up: the timer must not take it for a (re)start
+  awake_synced_ = true;   // a failure resets it
+  const bool awake = awake_;
+  blackboard_->set_parameters(
+    {rclcpp::Parameter(awake_param_, awake)},
+    [this, awake](std::shared_future<std::vector<rcl_interfaces::msg::SetParametersResult>> f) {
+      std::string error;
+      try {
+        const auto results = f.get();
+        if (results.empty() || !results.front().successful) {
+          error = results.empty() ? "no result" : results.front().reason;
+        }
+      } catch (const std::exception & e) {
+        error = e.what();
+      }
+      if (!error.empty()) {
+        RCLCPP_WARN(
+          get_logger(), "cannot set %s/%s to %s: %s", awake_node_.c_str(),
+          awake_param_.c_str(), awake ? "true" : "false", error.c_str());
+        std::lock_guard<std::mutex> lock(awake_mutex_);
+        if (awake_ == awake) {
+          awake_synced_ = false;   // retried by the timer
+        }
+      }
+    });
+}
+
 void DriverNode::executeReplayMotion(
   std::shared_ptr<rclcpp_action::ServerGoalHandle<ReplayMotion>> handle)
 {
@@ -903,6 +1008,7 @@ void DriverNode::executeWakeUp(
       return;
     }
   }
+  setAwake(true);   // as soon as called: e.g. the ASR listens during the animation
   RCLCPP_INFO(
     get_logger(), "waking up%s for %s",
     goal->name.empty() ? "" : (" with '" + goal->name + "'").c_str(),
@@ -937,6 +1043,7 @@ void DriverNode::executeGoToSleep(
   RCLCPP_INFO(
     get_logger(), "going to sleep for %s",
     goal->meta.caller.empty() ? "unknown" : goal->meta.caller.c_str());
+  setAwake(false);
   {
     std::lock_guard<std::mutex> lock(mutex_);
     gaze_.reset();
@@ -1130,6 +1237,9 @@ void DriverNode::shutdown()
     gaze_.reset();
   }
   waitForGoalThreads();   // before going to sleep: no goal may fight the sleep goto
+  if (rclcpp::ok(get_node_base_interface()->get_context())) {   // else done before shutdown
+    setAwake(false);
+  }
   if (get_parameter("sleep_on_shutdown").as_bool()) {
     RCLCPP_INFO(get_logger(), "going to sleep");
     const double duration = gotoPose(kSleepHeadPose, kSleepAntennas, 2.0, 0.0);

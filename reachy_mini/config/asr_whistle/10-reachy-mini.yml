@@ -23,6 +23,10 @@
     # 9-24 dB: 25 dB rejects ~90% of the noise with a 7 dB margin on speech.
     min_loudness_range_db: 25.0
 
+    # No ASR while the robot is asleep: the driver writes it to the robot
+    # blackboard (asleep at boot, then on go_to_sleep / wake_up).
+    active_parameter: /robot_blackboard/awake
+
   remappings:
     # Pause ASR while the robot's speaker plays (same QoS: reliable,
     # transient local), on top of the XVF3800's echo cancellation.

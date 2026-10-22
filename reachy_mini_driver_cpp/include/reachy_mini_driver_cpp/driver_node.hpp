@@ -29,6 +29,9 @@
 //   execute_joint_trajectory (motions_skills) and look_at (interaction_skills); plus
 //   wake_up (motions_skills/ReplayMotion: an optional animation, then the rest pose) and
 //   go_to_sleep (std_skills/Empty), which run in the motion slot like the motions.
+// Whether the robot is awake goes to a parameter of the robot blackboard
+// (`awake_parameter`, default /robot_blackboard/awake): false at start (unless
+// wake_up_on_start) and at exit, set when wake_up or go_to_sleep is called.
 // Results use the std_skills error codes; a motion goal with a priority greater
 // than or equal to the running one preempts it (ROS_EINTR), a lower one is rejected.
 
@@ -194,6 +197,15 @@ private:
     const std::shared_ptr<ListMotions::Request> request,
     std::shared_ptr<ListMotions::Response> response);
   std::vector<std::string> allMotionNames() const;
+  /// The start-up motion when not waking up: the sleep pose, then a short antenna
+  /// wiggle that says the driver is ready.
+  std::shared_ptr<const RecordedMove> readyMove();
+  /// Record whether the robot is awake, and write it to awake_parameter (asynchronously,
+  /// retried until the blackboard has it).
+  void setAwake(bool awake);
+  /// Send awake_ to the blackboard if it is up and does not have it yet; call under
+  /// awake_mutex_.
+  void syncAwake();
 
   std::shared_ptr<MotorBus> bus_;
   Kinematics kinematics_;
@@ -245,6 +257,17 @@ private:
   rclcpp_action::Server<ReplayMotion>::SharedPtr wake_up_server_;
   rclcpp_action::Server<EmptySkill>::SharedPtr sleep_server_;
   rclcpp::Service<ListMotions>::SharedPtr list_service_;
+
+  // awake_parameter: the blackboard node and its parameter (empty: none)
+  std::string awake_node_;
+  std::string awake_param_;
+  std::shared_ptr<rclcpp::AsyncParametersClient> blackboard_;
+  rclcpp::TimerBase::SharedPtr blackboard_timer_;
+  rclcpp::PreShutdownCallbackHandle pre_shutdown_handle_;
+  std::mutex awake_mutex_;
+  bool awake_{false};
+  bool awake_synced_{false};      ///< the blackboard has awake_
+  bool blackboard_ready_{false};  ///< its parameter services were up at the last check
 };
 
 extern const Pose kInitHeadPose;

@@ -41,6 +41,8 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.logging import get_logger
 from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rclpy.parameter_client import AsyncParameterClient
 from rclpy.signals import SignalHandlerOptions
 from reachy_mini.kinematics.analytical_kinematics import AnalyticalKinematics
 from reachy_mini.utils.interpolation import linear_pose_interpolation
@@ -142,6 +144,23 @@ class GotoMove:
         return pose, ant, g.start_yaw + (g.end_yaw - g.start_yaw) * a
 
 
+class SequenceMove:
+    """GotoMoves played one after the other, as one move."""
+
+    def __init__(self, gotos: List[GotoMove]) -> None:
+        """Play `gotos` in order."""
+        self.gotos = gotos
+        self.duration = sum(g.goto.duration for g in gotos) + 0.1
+
+    def evaluate(self, t: float):
+        """Return (head pose, antennas, body yaw) at time t."""
+        for g in self.gotos[:-1]:
+            if t < g.goto.duration:
+                return g.evaluate(t)
+            t -= g.goto.duration
+        return self.gotos[-1].evaluate(t)
+
+
 class DriverNode(Node):
     """
     Reachy Mini hardware driver.
@@ -155,7 +174,13 @@ class DriverNode(Node):
     dataset
         Default move library.
     wake_up_on_start, sleep_on_shutdown
-        Go to the rest pose at start / to the sleep pose (and torque off) at exit.
+        Go to the rest pose at start (default false: to the sleep pose, then a short
+        antenna wiggle that says the driver is ready) / to the sleep pose (and torque
+        off) at exit.
+    awake_parameter
+        Where to write whether the robot is awake, as /<node>/<parameter> (default
+        /robot_blackboard/awake; empty: nowhere): false at start (unless
+        wake_up_on_start) and at exit, set as soon as wake_up or go_to_sleep is called.
     publish_tf, base_frame
         Broadcast on /tf the transforms robot_state_publisher cannot compute from
         joint_states: base_frame -> head (forward kinematics) and base_frame -> rod_1..6
@@ -186,7 +211,8 @@ class DriverNode(Node):
         self.declare_parameter('serial_port', '/dev/ttyAMA3')
         self.declare_parameter('rate', 50.0)
         self.declare_parameter('dataset', DEFAULT_DATASET)
-        self.declare_parameter('wake_up_on_start', True)
+        self.declare_parameter('wake_up_on_start', False)
+        self.declare_parameter('awake_parameter', '/robot_blackboard/awake')
         self.declare_parameter('sleep_on_shutdown', True)
         self.declare_parameter('publish_tf', True)
         self.declare_parameter('base_frame', 'base_link')
@@ -259,13 +285,89 @@ class DriverNode(Node):
         self._list_service = self.create_service(
             ListMotions, ns + '/list_motions', self._list_motions, callback_group=self._cb_group)
 
+        # whether the robot is awake, written to the robot blackboard
+        self._awake = False
+        self._awake_synced = False
+        self._blackboard_ready = False
+        self._blackboard = None
+        awake_parameter = self.get_parameter('awake_parameter').value
+        if awake_parameter:
+            node, _, name = awake_parameter.rpartition('/')
+            if not node.startswith('/') or not name:
+                raise RuntimeError(f"awake_parameter '{awake_parameter}' is not of the form "
+                                   '/<node>/<parameter>')
+            self._blackboard = AsyncParameterClient(self, node)
+            self._awake_parameter = name
+            # the blackboard may start after the driver, or restart
+            self.create_timer(1.0, self._check_blackboard, callback_group=self._cb_group)
+
         self.bus.set_torque(True)
         if self.get_parameter('wake_up_on_start').value:
             self.goto(INIT_HEAD_POSE, INIT_ANTENNAS, duration=2.0, body_yaw=0.0)
+            self.set_awake(True)
+        else:
+            ready = self._ready_move()
+            with self._lock:
+                self._move = (ready, time.monotonic())
+            self.set_awake(False)
 
         period = 1.0 / self.get_parameter('rate').value
         self._timer = self.create_timer(period, self._tick)
         self.get_logger().info(f'driver ready on {port} at {1 / period:.0f} Hz')
+
+    # ------------------------------------------------------------------ awake
+    def set_awake(self, awake: bool) -> None:
+        """Record whether the robot is awake, and write it to the robot blackboard."""
+        with self._lock:
+            if awake != self._awake or self._blackboard is None:
+                self.get_logger().info('awake' if awake else 'asleep')
+            self._awake = awake
+            self._awake_synced = False
+        self._sync_awake()
+
+    def _check_blackboard(self) -> None:
+        ready = self._blackboard.services_are_ready()
+        with self._lock:
+            if ready and not self._blackboard_ready:
+                self._awake_synced = False
+            self._blackboard_ready = ready
+        self._sync_awake()
+
+    def _sync_awake(self) -> None:
+        """Send the awake state to the blackboard if it is up and does not have it yet."""
+        if self._blackboard is None or not self._blackboard.services_are_ready():
+            return
+        with self._lock:
+            self._blackboard_ready = True  # seen up: the timer must not take it for a (re)start
+            if self._awake_synced:
+                return
+            self._awake_synced = True      # a failure resets it
+            awake = self._awake
+        future = self._blackboard.set_parameters(
+            [Parameter(self._awake_parameter, Parameter.Type.BOOL, awake)])
+
+        def done(f):
+            try:
+                result = f.result().results[0]
+                error = None if result.successful else result.reason
+            except Exception as e:  # noqa: BLE001 - logged, retried
+                error = str(e)
+            if error is not None:
+                self.get_logger().warning(
+                    f'cannot set {self._awake_parameter} on the blackboard to {awake}: {error}')
+                with self._lock:
+                    if self._awake == awake:
+                        self._awake_synced = False     # retried by the timer
+        future.add_done_callback(done)
+
+    def _ready_move(self) -> SequenceMove:
+        """Return the sleep pose, then the antennas twice towards the rest pose and back."""
+        raised = [SLEEP_ANTENNAS[0] + 0.5, SLEEP_ANTENNAS[1] - 0.5]
+        gotos = [self._goto_move(SLEEP_HEAD_POSE, SLEEP_ANTENNAS, 0.0, 2.0)]
+        for i in range(4):
+            start, end = (SLEEP_ANTENNAS, raised) if i % 2 == 0 else (raised, SLEEP_ANTENNAS)
+            gotos.append(GotoMove(SLEEP_HEAD_POSE, SLEEP_HEAD_POSE, start, end, 0.0, 0.0, 0.25))
+        return SequenceMove(gotos)
 
     # ------------------------------------------------------------------ targets
     def goto(self, head_pose, antennas, duration: float,
@@ -487,6 +589,7 @@ class DriverNode(Node):
                 result.result.error_msg = f'{e}; available: {", ".join(self._all_motion_names())}'
                 goal_handle.abort()
                 return result
+        self.set_awake(True)   # as soon as called: e.g. the ASR listens during the animation
         self.get_logger().info(
             'waking up' + (f" with '{goal.name}'" if goal.name else '') +
             f" for {goal.meta.caller or 'unknown'}")
@@ -505,6 +608,7 @@ class DriverNode(Node):
         """go_to_sleep: the sleep pose, body centred (the motors stay on)."""
         goal = goal_handle.request
         self.get_logger().info(f"going to sleep for {goal.meta.caller or 'unknown'}")
+        self.set_awake(False)
         sleep = self._goto_move(SLEEP_HEAD_POSE, SLEEP_ANTENNAS, 0.0, 2.0)
         code = self._play(goal_handle, sleep, 'go_to_sleep', goal.meta.priority,
                           EmptySkill.Feedback(), 0.0)
@@ -519,6 +623,7 @@ class DriverNode(Node):
     def shutdown(self) -> None:
         """Go to sleep and release the motors."""
         self.stop_move()
+        self.set_awake(False)         # sent now; nobody waits for the answer
         self._timer.cancel()          # the executor may already be gone: tick by hand
         if self.get_parameter('sleep_on_shutdown').value:
             self.get_logger().info('going to sleep')

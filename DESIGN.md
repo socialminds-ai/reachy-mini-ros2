@@ -375,6 +375,10 @@ At construction, after `set_torque(True)`, `wake_up_on_start` triggers a 2 s got
 `INIT_HEAD_POSE` (identity) and `INIT_ANTENNAS` (`[-0.1745, 0.1745]`, about 10 degrees
 outwards, which shakes less than vertical). The constants `SLEEP_HEAD_POSE` (head tilted
 forward and down) and `SLEEP_ANTENNAS` (`[-3.05, 3.05]`) are the daemon's rest poses.
+By default (`wake_up_on_start` false) the driver starts asleep instead: a motion (so
+that any skill preempts it) made of the goto to the sleep pose, then the antennas moved
+0.5 rad towards the rest pose and back, twice, 0.25 s each way: the robot does not wake
+up on its own, but shows that the driver is ready (`readyMove` / `_ready_move`).
 
 `shutdown()` cancels any move, then if `sleep_on_shutdown`: a 2 s goto to the sleep pose,
 driven by calling `_tick()` by hand every 20 ms until the goto is done or 2.5 s have
@@ -402,6 +406,17 @@ starts from the sleep pose), then the goto to the rest pose, so it always ends i
 same pose whatever the animation's last sample. `go_to_sleep` leaves the torque on:
 releasing it is for the end of the process, when another program (the daemon) takes the
 servos over; a running driver keeps holding the head.
+
+Whether the robot is awake is robot-wide state that other nodes act on (the ASR stops
+listening while the robot sleeps), so it lives on the robot blackboard
+(`robot_blackboard`, a node that only holds parameters) rather than on the driver: the
+nodes that follow it do not depend on which node puts the robot to sleep. The driver
+writes it with an asynchronous parameter client: as soon as a skill is called (so the
+ASR listens during a 15 s wake-up animation, and stops at once when told to sleep),
+false at start and at exit (in C++, from a pre-shutdown callback of the context, the
+last moment a request can still be sent after a Ctrl+C). A 1 s timer writes it again
+when the blackboard appears, or reappears after a restart (back to its initial values),
+and retries a failed write.
 
 The exit sequence needs a live ROS context and a few seconds, which dictates how the
 process is stopped. In Python, `rclpy`'s default SIGINT handler tears the context down at once,

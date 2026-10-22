@@ -56,13 +56,13 @@ template<typename Pred>
 bool waitFor(Pred pred, std::chrono::milliseconds timeout = 5000ms)
 {
   const auto deadline = std::chrono::steady_clock::now() + timeout;
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (pred()) {
-      return true;
+  while (!pred()) {
+    if (std::chrono::steady_clock::now() >= deadline) {
+      return false;
     }
     std::this_thread::sleep_for(20ms);
   }
-  return false;
+  return true;
 }
 
 class DriverTest : public ::testing::Test
@@ -72,13 +72,19 @@ protected:
   {
     bus = std::make_shared<FakeBus>();
     bus->positions[0] = initial_body_yaw;
+    // the robot blackboard (as robot_blackboard runs it)
+    blackboard = std::make_shared<rclcpp::Node>(
+      "test_blackboard", rclcpp::NodeOptions().allow_undeclared_parameters(true));
     rclcpp::NodeOptions options;
     options.parameter_overrides({rclcpp::Parameter("dataset", std::string(TEST_MOVES_DIR)),
-        rclcpp::Parameter("glance_duration", 0.5)});
+        rclcpp::Parameter("glance_duration", 0.5),
+        rclcpp::Parameter("wake_up_on_start", wake_up_on_start),
+        rclcpp::Parameter("awake_parameter", "/test_blackboard/awake")});
     node = std::make_shared<DriverNode>(bus, options);
     executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>(
       rclcpp::ExecutorOptions(), 3);
     executor->add_node(node);
+    executor->add_node(blackboard);
     thread = std::thread([this] {executor->spin();});
     client_node = std::make_shared<rclcpp::Node>("test_client");
   }
@@ -90,6 +96,17 @@ protected:
     thread.join();
     executor.reset();
     node.reset();
+    blackboard.reset();
+  }
+  /// The blackboard's awake parameter, once the driver has set it to `expected`.
+  bool blackboardSays(bool expected, std::chrono::milliseconds timeout = 2000ms)
+  {
+    return waitFor(
+      [this, expected] {
+        rclcpp::Parameter p;
+        return blackboard->get_parameter("awake", p) &&
+               p.get_type() == rclcpp::ParameterType::PARAMETER_BOOL && p.as_bool() == expected;
+      }, timeout);
   }
   /// Send an action goal and wait for its result; returns the std_skills error code.
   template<typename Action>
@@ -171,6 +188,8 @@ protected:
   void awake() {std::this_thread::sleep_for(2200ms);}
 
   double initial_body_yaw{0.0};   ///< where the body is when the driver starts
+  bool wake_up_on_start{true};
+  std::shared_ptr<rclcpp::Node> blackboard;
   std::shared_ptr<FakeBus> bus;
   std::shared_ptr<DriverNode> node;
   std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor;
@@ -195,6 +214,37 @@ TEST_F(DriverTest, WakeUpReachesInitPose)
                std::fabs(bus->positions[8] - reachy_mini_driver::kInitAntennas[1]) < 1e-3;
       }, 4000ms));
   EXPECT_NEAR(bus->positions[0], 0.0, 1e-6);
+}
+
+TEST_F(DriverTest, AwakeAtStartIsOnTheBlackboard)
+{
+  EXPECT_TRUE(blackboardSays(true));
+}
+
+// the default: the driver starts asleep
+class AsleepDriverTest : public DriverTest
+{
+protected:
+  AsleepDriverTest() {wake_up_on_start = false;}
+};
+
+TEST_F(AsleepDriverTest, StartsAsleepWithAnAntennaWiggle)
+{
+  EXPECT_TRUE(blackboardSays(false));
+  // the sleep pose, then the antennas move towards the rest pose and back
+  auto asleep = [this] {
+      return std::fabs(bus->positions[7] - reachy_mini_driver::kSleepAntennas[0]) < 1e-2 &&
+             std::fabs(bus->positions[8] - reachy_mini_driver::kSleepAntennas[1]) < 1e-2;
+    };
+  auto raised = [this] {
+      return std::fabs(bus->positions[7] - (reachy_mini_driver::kSleepAntennas[0] + 0.5)) < 0.05 &&
+             std::fabs(bus->positions[8] - (reachy_mini_driver::kSleepAntennas[1] - 0.5)) < 0.05;
+    };
+  EXPECT_TRUE(waitFor(asleep, 3000ms));
+  EXPECT_TRUE(waitFor(raised, 1000ms));
+  EXPECT_TRUE(waitFor(asleep, 1000ms));
+  EXPECT_TRUE(bus->torque);
+  EXPECT_NEAR(bus->positions[0], 0.0, 1e-3);
 }
 
 // the body was left turned (by hand, or by a motion before a restart)
@@ -317,8 +367,10 @@ TEST_F(DriverTest, GoToSleepAndWakeUp)
   int feedbacks = 0;
   EmptySkill::Goal sleep;
   sleep.meta.caller = "test";
+  EXPECT_TRUE(blackboardSays(true));
   EXPECT_EQ(run<EmptySkill>("/skill/go_to_sleep", sleep, feedbacks), Result::ROS_ENOERR);
   EXPECT_TRUE(antennas_at(reachy_mini_driver::kSleepAntennas));
+  EXPECT_TRUE(blackboardSays(false, 100ms));   // set when called, the goto took 2 s
   EXPECT_GT(feedbacks, 0);
   EXPECT_TRUE(bus->torque);   // asleep, not released
 
@@ -330,15 +382,22 @@ TEST_F(DriverTest, GoToSleepAndWakeUp)
   EXPECT_TRUE(bus->torque);
   EXPECT_TRUE(antennas_at(reachy_mini_driver::kInitAntennas));
   EXPECT_NEAR(bus->positions[0], 0.0, 1e-3);
+  EXPECT_TRUE(blackboardSays(true, 100ms));
 
   // with an animation: played, then back to the rest pose
   wake.name = "nod";
   bool wiggled = false;
+  bool awake_while_animating = false;
   auto antenna_down = [this] {return std::fabs(bus->positions[7] + 0.3) < 0.1;};
-  std::thread checker([&] {wiggled = waitFor(antenna_down, 6000ms);});
+  run<EmptySkill>("/skill/go_to_sleep", sleep, feedbacks);
+  std::thread checker([&] {
+      wiggled = waitFor(antenna_down, 6000ms);
+      awake_while_animating = blackboardSays(true, 0ms);
+    });
   EXPECT_EQ(run<ReplayMotion>("/skill/wake_up", wake, feedbacks), Result::ROS_ENOERR);
   checker.join();
   EXPECT_TRUE(wiggled);
+  EXPECT_TRUE(awake_while_animating);   // awake as soon as wake_up is called
   EXPECT_TRUE(antennas_at(reachy_mini_driver::kInitAntennas));
 
   wake.name = "does_not_exist";
@@ -587,7 +646,8 @@ TEST(DriverShutdown, CtrlCDuringAMotionDoesNotCrash)
   auto bus = std::make_shared<FakeBus>();
   rclcpp::NodeOptions options;
   options.context(context);
-  options.parameter_overrides({rclcpp::Parameter("dataset", std::string(TEST_MOVES_DIR))});
+  options.parameter_overrides({rclcpp::Parameter("dataset", std::string(TEST_MOVES_DIR)),
+      rclcpp::Parameter("wake_up_on_start", true)});
   auto node = std::make_shared<DriverNode>(bus, options);
   rclcpp::executors::MultiThreadedExecutor executor(executor_options, 3);
   executor.add_node(node);

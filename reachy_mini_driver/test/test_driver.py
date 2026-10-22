@@ -35,16 +35,28 @@ MOVES_DIR = os.path.join(os.path.dirname(__file__), 'moves')
 
 
 @pytest.fixture
-def driver():
+def blackboard():
+    """Start a fresh ROS context with a blackboard node, as robot_blackboard runs it."""
     # a private domain: colcon runs the packages' tests in parallel, and the C++ driver test
     # starts the same node name and skill servers
     os.environ.setdefault('ROS_DOMAIN_ID', '71')
     rclpy.init()
+    node = rclpy.create_node('test_blackboard', allow_undeclared_parameters=True)
+    yield node
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+def run_driver(blackboard, wake_up_on_start):
+    """Run a driver on the fake bus; yield (node, bus)."""
     bus = FakeBus()
     node = DriverNode(bus=bus, parameter_overrides=[
-        rclpy.parameter.Parameter('dataset', value=MOVES_DIR)])
+        rclpy.parameter.Parameter('dataset', value=MOVES_DIR),
+        rclpy.parameter.Parameter('wake_up_on_start', value=wake_up_on_start),
+        rclpy.parameter.Parameter('awake_parameter', value='/test_blackboard/awake')])
     executor = MultiThreadedExecutor(num_threads=3)
     executor.add_node(node)
+    executor.add_node(blackboard)
     thread = threading.Thread(target=executor.spin, daemon=True)
     thread.start()
     yield node, bus
@@ -52,7 +64,18 @@ def driver():
     node.shutdown()
     executor.shutdown()
     node.destroy_node()
-    rclpy.shutdown()
+
+
+@pytest.fixture
+def driver(blackboard):
+    """Return a driver started awake."""
+    yield from run_driver(blackboard, True)
+
+
+@pytest.fixture
+def asleep_driver(blackboard):
+    """Return a driver started asleep (the default)."""
+    yield from run_driver(blackboard, False)
 
 
 def wait_for(predicate, timeout=5.0):
@@ -63,6 +86,14 @@ def wait_for(predicate, timeout=5.0):
             return True
         time.sleep(0.02)
     return False
+
+
+def blackboard_says(blackboard, expected, timeout=2.0):
+    """Wait for the blackboard's awake parameter to be `expected`."""
+    def says():
+        return (blackboard.has_parameter('awake') and
+                blackboard.get_parameter('awake').value is expected)
+    return says() or wait_for(says, timeout)
 
 
 def test_torque_is_enabled_and_loop_writes(driver):
@@ -77,6 +108,30 @@ def test_wake_up_reaches_init_pose(driver):
     assert wait_for(lambda: abs(bus.positions[7] - INIT_ANTENNAS[0]) < 1e-3
                     and abs(bus.positions[8] - INIT_ANTENNAS[1]) < 1e-3, timeout=4.0)
     assert abs(bus.positions[0]) < 1e-6          # body yaw 0
+
+
+def test_awake_at_start_is_on_the_blackboard(driver, blackboard):
+    assert blackboard_says(blackboard, True)
+
+
+def test_starts_asleep_with_an_antenna_wiggle(asleep_driver, blackboard):
+    node, bus = asleep_driver
+    assert blackboard_says(blackboard, False)
+
+    def asleep():
+        return (abs(bus.positions[7] - SLEEP_ANTENNAS[0]) < 1e-2 and
+                abs(bus.positions[8] - SLEEP_ANTENNAS[1]) < 1e-2)
+
+    def raised():
+        return (abs(bus.positions[7] - (SLEEP_ANTENNAS[0] + 0.5)) < 0.05 and
+                abs(bus.positions[8] - (SLEEP_ANTENNAS[1] - 0.5)) < 0.05)
+
+    # the sleep pose, then the antennas move towards the rest pose and back
+    assert wait_for(asleep, timeout=3.0)
+    assert wait_for(raised, timeout=1.0)
+    assert wait_for(asleep, timeout=1.0)
+    assert bus.torque
+    assert abs(bus.positions[0]) < 1e-3
 
 
 def test_joint_states_are_published(driver):
@@ -152,7 +207,7 @@ def run_goal(client_node, action_type, name, goal):
     return result_future.result().result.result
 
 
-def test_go_to_sleep_and_wake_up(driver):
+def test_go_to_sleep_and_wake_up(driver, blackboard):
     node, bus = driver
     time.sleep(2.2)
     client_node = rclpy.create_node('client4')
@@ -166,6 +221,7 @@ def test_go_to_sleep_and_wake_up(driver):
         Result.ROS_ENOERR
     assert antennas_at(SLEEP_ANTENNAS)
     assert bus.torque                            # asleep, not released
+    assert blackboard_says(blackboard, False, timeout=0.1)
 
     # default wake-up: a goto to the rest pose, torque back on if it was off
     bus.torque = False
@@ -175,17 +231,22 @@ def test_go_to_sleep_and_wake_up(driver):
     assert bus.torque
     assert antennas_at(INIT_ANTENNAS)
     assert abs(bus.positions[0]) < 1e-3
+    assert blackboard_says(blackboard, True, timeout=0.1)
 
-    # with an animation: played, then back to the rest pose
+    # with an animation: played, then back to the rest pose; awake as soon as called
+    run_goal(client_node, EmptySkill, '/skill/go_to_sleep', sleep)
     wiggled = []
-    checker = threading.Thread(target=lambda: wiggled.append(
-        wait_for(lambda: abs(bus.positions[7] + 0.3) < 0.1, timeout=6.0)))
+
+    def check():
+        wiggled.append(wait_for(lambda: abs(bus.positions[7] + 0.3) < 0.1, timeout=6.0))
+        wiggled.append(blackboard_says(blackboard, True, timeout=0.0))
+    checker = threading.Thread(target=check)
     checker.start()
     wake.name = 'nod'
     assert run_goal(client_node, ReplayMotion, '/skill/wake_up', wake).error_code == \
         Result.ROS_ENOERR
     checker.join()
-    assert wiggled == [True]
+    assert wiggled == [True, True]
     assert antennas_at(INIT_ANTENNAS)
 
     wake.name = 'does_not_exist'

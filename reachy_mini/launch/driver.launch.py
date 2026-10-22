@@ -23,13 +23,21 @@ camera and the audio (microphones and speaker).
     ros2 launch reachy_mini driver.launch.py camera:=false      # without the camera
     ros2 launch reachy_mini driver.launch.py audio:=false       # without microphones and speaker
     ros2 launch reachy_mini driver.launch.py asr:=false         # without speech recognition
+    ros2 launch reachy_mini driver.launch.py head_taps:=false   # no waking up by tapping
 
 The camera is reachy_mini_camera_driver (namespace /camera); the audio is
 mic_frontend (/audio/head/raw) and pw_audio_play (plays /audio/out), both
 through the robot's PipeWire and configured by config/mic_frontend/ and
 config/pw_audio_play/, which launch_pal merges over their defaults. Speech
 recognition is asr_whistle, on the head microphone (/humans/voices/head/speech),
-configured by config/asr_whistle/; it needs the audio.
+configured by config/asr_whistle/; it needs the audio, and pauses while the
+robot is asleep.
+
+Also starts robot_blackboard, the robot-wide parameters (config/robot_blackboard/):
+the driver starts asleep (sleep pose, then an antenna wiggle that says it is
+ready) and writes /robot_blackboard/awake when /skill/wake_up or
+/skill/go_to_sleep is called. reachy_mini_head_taps wakes the robot up when its
+head is tapped 3 times, and puts it to sleep on 4 taps; it needs the audio.
 
 Also starts robot_state_publisher with the reachy_mini_description model
 (description:=false to skip it): joint_states from the driver give the body yaw,
@@ -68,6 +76,13 @@ def generate_launch_description():
         DeclareLaunchArgument('asr', default_value='true',
                               description='start speech recognition (asr_whistle) on the '
                                           'head microphone; needs audio:=true'),
+        DeclareLaunchArgument('head_taps', default_value='true',
+                              description='wake up / go to sleep on 3 / 4 taps on the head '
+                                          '(reachy_mini_head_taps); needs audio:=true'),
+        IncludeLaunchDescription(
+            os.path.join(get_package_share_directory('robot_blackboard'),
+                         'launch', 'robot_blackboard.launch.py'),
+        ),
         IncludeLaunchDescription(
             os.path.join(get_package_share_directory('reachy_mini_description'),
                          'launch', 'description.launch.py'),
@@ -94,6 +109,13 @@ def generate_launch_description():
             condition=IfCondition(PythonExpression(
                 ["'", LaunchConfiguration('audio'), "'.lower() in ('true', '1') and '",
                  LaunchConfiguration('asr'), "'.lower() in ('true', '1')"])),
+        ),
+        IncludeLaunchDescription(
+            os.path.join(get_package_share_directory('reachy_mini_head_taps'),
+                         'launch', 'head_taps.launch.py'),
+            condition=IfCondition(PythonExpression(
+                ["'", LaunchConfiguration('audio'), "'.lower() in ('true', '1') and '",
+                 LaunchConfiguration('head_taps'), "'.lower() in ('true', '1')"])),
         ),
         Node(
             package=PythonExpression(["'reachy_mini_driver' if '", lang,

@@ -1,0 +1,8 @@
+# The Reachy Mini's robot-wide parameters, merged by launch_pal over
+# robot_blackboard's 00-defaults.yml (override it in ~/.pal/config/).
+/robot_blackboard:
+  ros__parameters:
+    # The driver starts asleep (sleep pose, then an antenna wiggle) and
+    # updates this when /skill/wake_up or /skill/go_to_sleep is called.
+    # Followed by asr_whistle (active_parameter).
+    awake: false

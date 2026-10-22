@@ -10,7 +10,8 @@ reachy_mini_driver:
     motion_initial_goto: 0.5           # s, glide to the first sample of a motion before playing it
     glance_duration: 2.0               # s, how long look_at holds a GLANCE (C++ driver)
     tracking_lost_timeout: 1.0         # s, without TF for the target before look_at TRACKING gives up (C++ driver)
-    wake_up_on_start: true             # go to the rest pose when the driver starts
+    wake_up_on_start: false            # start awake (rest pose) rather than asleep (sleep pose and an antenna wiggle)
     sleep_on_shutdown: true            # go to the sleep pose and release the motors on exit
+    awake_parameter: /robot_blackboard/awake  # where to write whether the robot is awake ('' = nowhere)
     publish_tf: true                   # broadcast base_frame -> head and -> rod_1..6 on /tf
     base_frame: base_link              # the robot base frame (root of reachy_mini_description)
