@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>reachy_mini_driver_cpp</name>
-  <version>1.5.0</version>
+  <version>1.6.0</version>
   <description>Bare-metal hardware driver for the Reachy Mini (C++): owns the servo bus through reachy_mini_c, runs the 50 Hz control loop, publishes joint states and TF, and implements the ROS4HRI skills replay_motion, list_motions, execute_cartesian_trajectory, execute_joint_trajectory and look_at. Replaces the Pollen daemon.</description>
   <maintainer email="severin.lemaignan@iiia.csic.es">Séverin Lemaignan</maintainer>
   <license>Apache-2.0</license>
