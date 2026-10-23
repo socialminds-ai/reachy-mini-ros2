@@ -430,6 +430,7 @@ the robot (section 2.1). Each check names what to look at if it fails
 | | `python3 tools/record_audio.py /audio/head/raw head.wav 10`, then `aplay head.wav` | 10 s of clear speech, no dropouts or clicks |
 | speech recognition | `ros2 topic echo /humans/voices/head/speech` | once the robot is awake: what you say near the robot, as `incremental` then `final` text, in a second or so; nothing while it is asleep |
 | speaker | `python3 tools/play_audio.py` (a piano sample from the web; or a WAV file, or `tone`) | the robot plays it cleanly; `ros2 topic echo /pw_audio_play/is_playing` says `true` meanwhile |
+| speech synthesis | `ros2 action send_goal /skill/say communication_skills/action/Say "{input: 'Hello! I am Reachy Mini.', meta: {caller: test, priority: 128}}"` | the robot says it in the alba voice; `ros2 param set /tts_pockettts voice severin-neutral` for a custom voice |
 | everything together | RViz, section 2.3 | the model moves with the robot, the camera image shows |
 
 The motion checks move the robot: make sure it has room.
@@ -535,7 +536,7 @@ The speaker is barely audible
 
 | package | what |
 |---|---|
-| `reachy_mini` | Metapackage: depends on all of the below and on the audio nodes (`mic_frontend`, `pw_audio_play`); ships `driver.launch.py`, the parameter files and a systemd unit for native installations. Install this one. |
+| `reachy_mini` | Metapackage: depends on all of the below, on the audio nodes (`mic_frontend`, `pw_audio_play`), speech recognition (`asr_whistle`) and speech synthesis (`tts_pockettts`, with its small English model and the custom voices); ships `driver.launch.py`, the parameter files and a systemd unit for native installations. Install this one. |
 | `reachy_mini_driver_cpp` | The servo driver in C++ (uses `reachy_mini_c`, Eigen, nlohmann_json): the one `driver.launch.py` starts by default. |
 | `reachy_mini_head_taps` | Wakes the robot up when its head is tapped 3 times, puts it to sleep on 4 taps (the `wake_up` / `go_to_sleep` skills); started by `driver.launch.py`. |
 | `reachy_mini_driver` | The same driver in Python (uses Pollen's Python wheels), a reference implementation limited to `replay_motion`, `list_motions`, `wake_up` and `go_to_sleep`. |

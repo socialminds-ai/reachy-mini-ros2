@@ -23,6 +23,7 @@ camera and the audio (microphones and speaker).
     ros2 launch reachy_mini driver.launch.py camera:=false      # without the camera
     ros2 launch reachy_mini driver.launch.py audio:=false       # without microphones and speaker
     ros2 launch reachy_mini driver.launch.py asr:=false         # without speech recognition
+    ros2 launch reachy_mini driver.launch.py tts:=false         # without speech synthesis
     ros2 launch reachy_mini driver.launch.py head_taps:=false   # no waking up by tapping
 
 The camera is reachy_mini_camera_driver (namespace /camera); the audio is
@@ -31,7 +32,10 @@ through the robot's PipeWire and configured by config/mic_frontend/ and
 config/pw_audio_play/, which launch_pal merges over their defaults. Speech
 recognition is asr_whistle, on the head microphone (/humans/voices/head/speech),
 configured by config/asr_whistle/; it needs the audio, and pauses while the
-robot is asleep.
+robot is asleep. Speech synthesis is tts_pockettts (the /skill/say action;
+audio on /audio/out, for pw_audio_play), with the small English model and the
+alba voice, configured by config/tts_pockettts/; the custom voices of
+tts_pockettts_custom_voices are available too.
 
 Also starts robot_blackboard, the robot-wide parameters (config/robot_blackboard/):
 the driver starts asleep (sleep pose, then an antenna wiggle that says it is
@@ -76,6 +80,9 @@ def generate_launch_description():
         DeclareLaunchArgument('asr', default_value='true',
                               description='start speech recognition (asr_whistle) on the '
                                           'head microphone; needs audio:=true'),
+        DeclareLaunchArgument('tts', default_value='true',
+                              description='start speech synthesis (tts_pockettts); needs '
+                                          'audio:=true'),
         DeclareLaunchArgument('head_taps', default_value='true',
                               description='wake up / go to sleep on 3 / 4 taps on the head '
                                           '(reachy_mini_head_taps); needs audio:=true'),
@@ -109,6 +116,13 @@ def generate_launch_description():
             condition=IfCondition(PythonExpression(
                 ["'", LaunchConfiguration('audio'), "'.lower() in ('true', '1') and '",
                  LaunchConfiguration('asr'), "'.lower() in ('true', '1')"])),
+        ),
+        IncludeLaunchDescription(
+            os.path.join(get_package_share_directory('tts_pockettts'),
+                         'launch', 'tts_pockettts.launch.py'),
+            condition=IfCondition(PythonExpression(
+                ["'", LaunchConfiguration('audio'), "'.lower() in ('true', '1') and '",
+                 LaunchConfiguration('tts'), "'.lower() in ('true', '1')"])),
         ),
         IncludeLaunchDescription(
             os.path.join(get_package_share_directory('reachy_mini_head_taps'),

@@ -1,0 +1,15 @@
+# tts_pockettts on the Reachy Mini, merged by launch_pal over tts_pockettts'
+# 00-defaults.yml (override it in ~/.pal/config/).
+/tts_pockettts:
+  ros__parameters:
+    # The small English model (tts_pockettts_model_english_18m_2026_10):
+    # ~0.5 core while speaking on a Raspberry Pi CM4, leaving room for the
+    # speech recognition (3 cores).
+    default_locale: en_GB
+    voice: alba
+    # Custom voices (e.g. severin-neutral, from tts_pockettts_custom_voices)
+    # are found too: `ros2 param set /tts_pockettts voice severin-neutral`.
+
+    # pw_audio_play publishes whether the speaker plays (~/is_playing), which
+    # asr_whistle listens to.
+    publish_robot_speaking: false
