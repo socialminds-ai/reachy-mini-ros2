@@ -2,6 +2,17 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* reachy_mini: speech synthesis with tts_pockettts
+  driver.launch.py starts tts_pockettts (tts:=false to skip it; needs the
+  audio), configured by config/tts_pockettts/: the small English model,
+  in the alba voice. The metapackage depends on tts_pockettts, its small
+  English model and tts_pockettts_custom_voices, whose voices can then be
+  selected with the voice parameter.
+  Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+* Contributors: Séverin Lemaignan
+
 1.6.0 (2026-10-22)
 ------------------
 * driver: start asleep, publish the awake state on the robot blackboard; head taps

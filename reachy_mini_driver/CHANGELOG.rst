@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.6.0 (2026-10-22)
 ------------------
 * driver: start asleep, publish the awake state on the robot blackboard; head taps

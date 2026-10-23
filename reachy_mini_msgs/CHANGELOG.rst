@@ -2,6 +2,9 @@
 Changelog for package reachy_mini_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.6.0 (2026-10-22)
 ------------------
 
