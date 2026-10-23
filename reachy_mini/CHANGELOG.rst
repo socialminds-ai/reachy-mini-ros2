@@ -2,8 +2,8 @@
 Changelog for package reachy_mini
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.7.0 (2026-10-23)
+------------------
 * reachy_mini: speech synthesis with tts_pockettts
   driver.launch.py starts tts_pockettts (tts:=false to skip it; needs the
   audio), configured by config/tts_pockettts/: the small English model,
