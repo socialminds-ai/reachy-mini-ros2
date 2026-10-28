@@ -70,7 +70,7 @@ about a second, enough for `apt`; NTP does the rest once the package is in):
 
 ```sh
 # from your machine
-ssh -t pollen@reachy-mini.local "sudo date -u -s '$(date -u)'"
+ssh -t pollen@reachy-mini.local "sudo date -u -s @$(date +%s)"
 ```
 
 Your own machine's clock must be right too (a container uses its host's clock).
