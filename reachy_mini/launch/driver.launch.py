@@ -30,9 +30,9 @@ The camera is reachy_mini_camera_driver (namespace /camera); the audio is
 mic_frontend (/audio/head/raw) and pw_audio_play (plays /audio/out), both
 through the robot's PipeWire and configured by config/mic_frontend/ and
 config/pw_audio_play/, which launch_pal merges over their defaults. Speech
-recognition is asr_whistle, on the head microphone (/humans/voices/head/speech),
-configured by config/asr_whistle/; it needs the audio, and pauses while the
-robot is asleep. Speech synthesis is tts_pockettts (the /skill/say action;
+recognition is asr_whistle, on the head microphone
+(/humans/voices/anonymous_speaker/speech), configured by config/asr_whistle/;
+it needs the audio, and pauses while the robot is asleep. Speech synthesis is tts_pockettts (the /skill/say action;
 audio on /audio/out, for pw_audio_play), with the small English model and the
 alba voice, configured by config/tts_pockettts/; the custom voices of
 tts_pockettts_custom_voices are available too.

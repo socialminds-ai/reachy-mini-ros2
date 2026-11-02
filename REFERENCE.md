@@ -210,7 +210,7 @@ Dutch, Polish) on the robot's CPU, on the head microphone, following the
 | node | | |
 |---|---|---|
 | `asr_whistle` | subscribes | `/audio/head/raw`, `/audio/head/info`, `/audio/head/voice_detected`; `/pw_audio_play/is_playing` (ASR pauses while the robot speaks); follows `/robot_blackboard/awake` (ASR pauses while the robot is asleep) |
-| | publishes | `/humans/voices/head/speech` (`hri_msgs/LiveSpeech`: incremental transcriptions while someone speaks, then a `final`), `/humans/voices/head/is_speaking`, `/humans/voices/tracked` |
+| | publishes | `/humans/voices/anonymous_speaker/speech` (`hri_msgs/LiveSpeech`: incremental transcriptions while someone speaks, then a `final`), `/humans/voices/anonymous_speaker/is_speaking`, `/humans/voices/tracked` |
 
 `reachy_mini/config/asr_whistle/` holds the settings measured on this robot: 3
 inference threads (faster than 4 on the CM4, and one core left to the driver
