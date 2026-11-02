@@ -1,5 +1,7 @@
 # Reachy Mini ROS 2
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23889221.svg)](https://doi.org/10.5281/zenodo.23889221)
+
 ROS 2 Lyrical support for the Pollen Robotics Reachy Mini (wireless): the
 servos, the robot model and TF, the camera, the microphones and the speaker, and
 the [ROS4HRI skills](https://ros4hri.github.io/skills/) (`replay_motion`,
@@ -545,3 +547,19 @@ The speaker is barely audible
 | `reachy_mini_camera_driver` | The camera (IMX708 wide, CSI) through libcamera, H.264 from the Pi's hardware encoder. |
 | `reachy_mini_description` | URDF and meshes (from the Pollen SDK model), restructured for `robot_state_publisher`, and the RViz configuration (model, TF, camera). |
 | `docker/` | The robot's ROS 2 container image (not a ROS package). Its systemd units, PipeWire configuration and `provision.sh` are those of the manual installation, superseded by [reachy-mini-ros2-bootstrap](https://gitlab.iiia.csic.es/socialminds/robots/reachymini/reachy_mini_ros2_bootstrap). |
+
+## Citing
+
+If you use this software in your research, please cite it via its Zenodo
+record, [doi:10.5281/zenodo.23889221](https://doi.org/10.5281/zenodo.23889221):
+
+```bibtex
+@misc{lemaignan2026reachyminiros2,
+  author    = {Lemaignan, Séverin},
+  title     = {Reachy Mini ROS2 drivers},
+  publisher = {Zenodo},
+  year      = {2026},
+  doi       = {10.5281/zenodo.23889221},
+  url       = {https://doi.org/10.5281/zenodo.23889221}
+}
+```
